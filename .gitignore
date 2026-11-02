@@ -27,3 +27,6 @@ contracts/deployments/31337.json
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Local README preview (not part of the repo)
+.readme_preview/

@@ -1,0 +1,93 @@
+// REST client for the oracle Worker. Each function returns parsed JSON or throws with the oracle error code.
+import { ORACLE_URL } from './config';
+
+export class OracleError extends Error {
+  readonly status: number;
+  readonly code: string;
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.name = 'OracleError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${ORACLE_URL}${path}`, {
+    ...init,
+    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+  });
+  const text = await res.text();
+  let body: unknown = null;
+  try {
+    body = text.length > 0 ? JSON.parse(text) : null;
+  } catch {
+    body = null;
+  }
+  if (!res.ok) {
+    const err = (body as { error?: { code?: string; message?: string } } | null)?.error;
+    throw new OracleError(res.status, err?.code ?? 'http_error', err?.message ?? `HTTP ${res.status}`);
+  }
+  return body as T;
+}
+
+export interface MetadataDoc {
+  version: number;
+  title: string;
+  lms: 'moodle' | 'demo';
+  site: string;
+  course_id: number;
+  activities: { kind: 'quiz' | 'assign'; instance_id: number; name: string; due: number }[];
+  min_grade: number | null;
+}
+
+export interface ProgressActivity {
+  instance_id: number;
+  kind: string;
+  submitted: boolean;
+  time_finished: number | null;
+  status: string;
+}
+
+export interface ProgressBody {
+  challenge_id: number;
+  wallet: string;
+  stake: string;
+  activities: ProgressActivity[];
+  as_of: number;
+}
+
+export interface ProofBody {
+  completed: boolean;
+  stake: string;
+  proof: `0x${string}`[];
+}
+
+export interface EvidenceEntryView {
+  account: string;
+  stake: string;
+  completed: boolean;
+  reason: string;
+  subject_hash: string | null;
+  activities: { instance_id: number; submitted: boolean; time_finished: number | null }[];
+}
+
+export const oracle = {
+  get_metadata: (hash: string) => request<MetadataDoc>(`/metadata/${hash}`),
+  post_metadata: (body: unknown) => request<{ metadata_hash: string; metadata_uri: string }>(`/metadata`, { method: 'POST', body: JSON.stringify(body) }),
+  get_link: (wallet: string) => request<{ linked: boolean; lms?: string; site?: string }>(`/link/${wallet}`),
+  post_link: (body: unknown) => request<{ lms: string; site: string; linked: boolean }>(`/link`, { method: 'POST', body: JSON.stringify(body) }),
+  delete_link: (body: unknown) => request<{ ok: boolean }>(`/link`, { method: 'DELETE', body: JSON.stringify(body) }),
+  get_progress: (id: number, wallet: string) => request<ProgressBody>(`/progress/${id}/${wallet}`),
+  post_demo_submit: (body: unknown) => request<{ ok: boolean; submitted_at: number }>(`/demo/submit`, { method: 'POST', body: JSON.stringify(body) }),
+  get_demo_activities: (id: number) =>
+    request<{ label: string; lms: string; title: string; activities: MetadataDoc['activities'] }>(`/demo/activities/${id}`),
+  get_evidence: (id: number) => request<Record<string, unknown>>(`/evidence/${id}`),
+  get_proof: (id: number, account: string) => request<ProofBody>(`/proof/${id}/${account}`),
+  post_faucet: (body: unknown, jwt: string | null) =>
+    request<{ tx_hash: string }>(`/faucet`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: jwt ? { authorization: `Bearer ${jwt}` } : {},
+    }),
+};

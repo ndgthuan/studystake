@@ -1,0 +1,31 @@
+# StudyStake oracle (Cloudflare Worker).
+# Placeholders marked REPLACE_* must be set before deploy. Secrets are NOT stored here:
+#   npx wrangler secret put ORACLE_PRIVATE_KEY   (and the others listed in README.md)
+
+name = "studystake-oracle"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[[r2_buckets]]
+binding = "EVIDENCE"
+bucket_name = "studystake-evidence"
+
+[vars]
+# Fuji defaults
+CHAIN_ID = "43113"
+RPC_URL = "https://api.avax-test.network/ext/bc/C/rpc"
+# REPLACE_* : set after `forge script script/Deploy.s.sol --broadcast --rpc-url <fuji>`
+MANAGER_ADDRESS = "0x0000000000000000000000000000000000000000"
+DEPLOY_BLOCK = "0"
+ALLOWED_ORIGINS = "http://localhost:3000"
+MOODLE_SITES = "https://courses.ctda.hcmus.edu.vn"
+# 0.05 AVAX
+FAUCET_AMOUNT_WEI = "50000000000000000"
+FAUCET_DAILY_CAP = "20"

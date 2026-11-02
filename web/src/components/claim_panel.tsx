@@ -1,0 +1,158 @@
+'use client';
+// Claim panel for Finalized or Expired challenges.
+// - Not yet claimed: preview_claim (principal and reward) and a Claim button.
+// - Already claimed: the amounts from the account's Claimed event, and a link to the badge on /me.
+// The gas estimate has a margin; claim() checks its own gasleft before the badge call.
+import Link from 'next/link';
+import { parseAbiItem, type Address } from 'viem';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { use_ui } from '@/hooks/use_ui';
+import { use_tx } from '@/hooks/use_tx';
+import { invalidate_challenge_queries } from '@/hooks/use_challenge';
+import { addresses, abis, public_client, type PhaseName } from '@/lib/contracts';
+import { oracle } from '@/lib/oracle';
+import { format_usdc } from '@/lib/usdc';
+import { t } from '@/lib/i18n';
+import { DEPLOY_FROM_BLOCK } from '@/lib/config';
+import { TxStatusLine } from './tx_status';
+
+/** Gas buffer on top of the estimate. claim() forwards a fixed 300k to the badge and checks gasleft itself. */
+const GAS_MARGIN_PERCENT = 130n;
+
+const claimed_event = parseAbiItem(
+  'event Claimed(uint256 indexed id, address indexed account, bool completed, uint256 principal_out, uint256 reward)',
+);
+
+interface Preview {
+  principal_out: bigint;
+  reward: bigint;
+  completed: boolean;
+  proof: `0x${string}`[];
+}
+
+interface Receipt {
+  principal_out: bigint;
+  reward: bigint;
+  completed: boolean;
+}
+
+export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName; wallet: `0x${string}` | null }) {
+  const { lang } = use_ui();
+  const qc = useQueryClient();
+  const { state, run } = use_tx(lang, () => invalidate_challenge_queries(qc));
+
+  const claimable_phase = phase === 'Finalized' || phase === 'Expired';
+
+  // Already-claimed state from the Claimed event for this account.
+  const receipt_q = useQuery<Receipt | null>({
+    queryKey: ['claim_receipt', id.toString(), wallet ?? null],
+    enabled: !!wallet && claimable_phase,
+    queryFn: async () => {
+      const logs = await public_client.getLogs({
+        address: addresses.manager,
+        event: claimed_event,
+        args: { id, account: wallet as Address },
+        fromBlock: DEPLOY_FROM_BLOCK,
+        toBlock: 'latest',
+      });
+      const log = logs[0];
+      if (!log) return null;
+      return {
+        principal_out: log.args.principal_out!,
+        reward: log.args.reward!,
+        completed: log.args.completed!,
+      };
+    },
+  });
+
+  // Unclaimed preview: stake, claimed flag, proof and preview_claim.
+  const preview_q = useQuery<Preview | null>({
+    queryKey: ['preview', id.toString(), wallet ?? null],
+    enabled: !!wallet && claimable_phase && receipt_q.isSuccess && receipt_q.data === null,
+    queryFn: async () => {
+      const acc = wallet!;
+      const stake = (await public_client.readContract({
+        address: addresses.manager,
+        abi: abis.manager,
+        functionName: 'stake_of',
+        args: [id, acc],
+      })) as bigint;
+      if (stake === 0n) return null;
+      // Completed-or-not comes from the oracle proof. Without a proof the account claims as not completed.
+      const proof_body = await oracle.get_proof(Number(id), acc).catch(() => null);
+      const completed = proof_body?.completed ?? false;
+      const [principal_out, reward] = (await public_client.readContract({
+        address: addresses.manager,
+        abi: abis.manager,
+        functionName: 'preview_claim',
+        args: [id, acc, completed],
+      })) as [bigint, bigint];
+      return { principal_out, reward, completed, proof: (proof_body?.proof ?? []) as `0x${string}`[] };
+    },
+  });
+
+  if (!wallet || !claimable_phase) return null;
+  // Render nothing while loading. A loading line here stayed on screen after the panel's data resolved to "no claim".
+  if (receipt_q.isLoading || preview_q.isLoading) return null;
+
+  const r = receipt_q.data;
+  if (r) {
+    return (
+      <section className="card flex flex-col gap-3 p-4">
+        <h2 className="font-semibold">{t(lang, 'claim')}</h2>
+        <div className="num text-sm">
+          {lang === 'vi' ? 'Đã nhận' : 'Claimed'}: {lang === 'vi' ? 'gốc' : 'principal'} {format_usdc(r.principal_out)} USDC
+          {r.completed ? ` · ${lang === 'vi' ? 'thưởng' : 'reward'} ${format_usdc(r.reward)} USDC` : ''}
+        </div>
+        <Link href="/me" className="underline text-sm">
+          {t(lang, 'badge_title')}
+        </Link>
+      </section>
+    );
+  }
+
+  const p = preview_q.data;
+  if (!p) return null;
+
+  async function claim() {
+    if (!p) return;
+    const args = [id, p.completed, p.proof] as const;
+    let gas: bigint | undefined;
+    try {
+      const est = await public_client.estimateContractGas({
+        address: addresses.manager,
+        abi: abis.manager,
+        functionName: 'claim',
+        args,
+        account: wallet!,
+      });
+      gas = (est * GAS_MARGIN_PERCENT) / 100n;
+    } catch {
+      gas = undefined;
+    }
+    await run({ address: addresses.manager, abi: abis.manager, functionName: 'claim', args, gas });
+  }
+
+  return (
+    <section className="card flex flex-col gap-3 p-4">
+      <h2 className="font-semibold">{t(lang, 'claim')}</h2>
+      <div className="num grid grid-cols-2 gap-2 text-sm">
+        <span className="text-[var(--muted)]">{t(lang, 'completed')}</span>
+        <span>{p.completed ? '✓' : '✗'}</span>
+        <span className="text-[var(--muted)]">USDC</span>
+        <span>
+          {format_usdc(p.principal_out)} + {format_usdc(p.reward)}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="btn"
+        disabled={state.status === 'signing' || state.status === 'pending' || (p.principal_out === 0n && p.reward === 0n)}
+        onClick={claim}
+      >
+        {t(lang, 'claim')}
+      </button>
+      <TxStatusLine state={state} lang={lang} />
+    </section>
+  );
+}

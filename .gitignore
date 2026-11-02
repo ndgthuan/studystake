@@ -1,0 +1,29 @@
+# Monorepo root ignores (per-package .gitignore files also apply)
+
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+cache/
+coverage/
+playwright-report/
+test-results/
+.wrangler/
+
+# Secrets and local env
+**/.env
+**/.env.*
+!**/.env.example
+**/.dev.vars
+!**/.dev.vars.example
+
+# Foundry artifacts and local deployments
+contracts/broadcast/
+contracts/deployments/31337.json
+
+# Logs and OS junk
+.test_failures.log
+*.log
+.DS_Store
+*.tsbuildinfo

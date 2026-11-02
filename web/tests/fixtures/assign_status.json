@@ -1,0 +1,30 @@
+{
+  "submitted": {
+    "lastattempt": {
+      "submission": { "id": 77, "userid": 42, "status": "submitted", "timemodified": 1763500000, "attemptnumber": 0 },
+      "teamsubmission": null,
+      "submissionsenabled": true,
+      "locked": false,
+      "gradingstatus": "notgraded"
+    },
+    "warnings": []
+  },
+  "new": {
+    "lastattempt": {
+      "submission": { "id": 0, "userid": 42, "status": "new", "timemodified": 0, "attemptnumber": 0 },
+      "submissionsenabled": true,
+      "locked": false,
+      "gradingstatus": "notgraded"
+    },
+    "warnings": []
+  },
+  "draft": {
+    "lastattempt": {
+      "submission": { "id": 78, "userid": 42, "status": "draft", "timemodified": 1763499000, "attemptnumber": 0 },
+      "submissionsenabled": true,
+      "locked": false,
+      "gradingstatus": "notgraded"
+    },
+    "warnings": []
+  }
+}

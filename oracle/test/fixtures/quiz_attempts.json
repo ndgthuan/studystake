@@ -1,0 +1,54 @@
+{
+  "finished_and_inprogress": {
+    "attempts": [
+      {
+        "id": 901,
+        "quiz": 567,
+        "userid": 42,
+        "attempt": 2,
+        "state": "inprogress",
+        "timestart": 1763650000,
+        "timefinish": 0,
+        "sumgrades": null
+      },
+      {
+        "id": 900,
+        "quiz": 567,
+        "userid": 42,
+        "attempt": 1,
+        "state": "finished",
+        "timestart": 1763500000,
+        "timefinish": 1763600000,
+        "sumgrades": 8.5
+      },
+      {
+        "id": 899,
+        "quiz": 567,
+        "userid": 42,
+        "attempt": 0,
+        "state": "finished",
+        "timestart": 1763400000,
+        "timefinish": 1763450000,
+        "sumgrades": 3.0
+      }
+    ],
+    "warnings": []
+  },
+  "only_inprogress": {
+    "attempts": [
+      { "id": 901, "quiz": 567, "userid": 42, "attempt": 1, "state": "inprogress", "timestart": 1763650000, "timefinish": 0, "sumgrades": null }
+    ],
+    "warnings": []
+  },
+  "empty": { "attempts": [], "warnings": [] },
+  "exception": {
+    "exception": "moodle_exception",
+    "errorcode": "invalidrecord",
+    "message": "Can not find data record in database"
+  },
+  "invalidtoken": {
+    "exception": "webservice_access_exception",
+    "errorcode": "invalidtoken",
+    "message": "Invalid token - token not found"
+  }
+}

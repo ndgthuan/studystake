@@ -1,0 +1,172 @@
+[
+  {
+    "name": "nested_sorted",
+    "value": {
+      "b": 1,
+      "a": {
+        "z": [
+          1,
+          2
+        ],
+        "y": "x"
+      }
+    },
+    "canonical": "{\"a\":{\"y\":\"x\",\"z\":[1,2]},\"b\":1}"
+  },
+  {
+    "name": "escapes_and_null",
+    "value": {
+      "n": null,
+      "t": true,
+      "f": false,
+      "s": "a\"b"
+    },
+    "canonical": "{\"f\":false,\"n\":null,\"s\":\"a\\\"b\",\"t\":true}"
+  },
+  {
+    "name": "drops_undefined",
+    "value": {
+      "b": 1
+    },
+    "canonical": "{\"b\":1}"
+  },
+  {
+    "name": "array_order",
+    "value": [
+      3,
+      1,
+      2
+    ],
+    "canonical": "[3,1,2]"
+  },
+  {
+    "name": "unicode",
+    "value": {
+      "ten": "Thuận",
+      "mon": "Vật lý cho CNTT"
+    },
+    "canonical": "{\"mon\":\"Vật lý cho CNTT\",\"ten\":\"Thuận\"}"
+  },
+  {
+    "name": "quiz_attempts_fixture",
+    "value": {
+      "finished_and_inprogress": {
+        "attempts": [
+          {
+            "id": 901,
+            "quiz": 567,
+            "userid": 42,
+            "attempt": 2,
+            "state": "inprogress",
+            "timestart": 1763650000,
+            "timefinish": 0,
+            "sumgrades": null
+          },
+          {
+            "id": 900,
+            "quiz": 567,
+            "userid": 42,
+            "attempt": 1,
+            "state": "finished",
+            "timestart": 1763500000,
+            "timefinish": 1763600000,
+            "sumgrades": 8.5
+          },
+          {
+            "id": 899,
+            "quiz": 567,
+            "userid": 42,
+            "attempt": 0,
+            "state": "finished",
+            "timestart": 1763400000,
+            "timefinish": 1763450000,
+            "sumgrades": 3
+          }
+        ],
+        "warnings": []
+      },
+      "only_inprogress": {
+        "attempts": [
+          {
+            "id": 901,
+            "quiz": 567,
+            "userid": 42,
+            "attempt": 1,
+            "state": "inprogress",
+            "timestart": 1763650000,
+            "timefinish": 0,
+            "sumgrades": null
+          }
+        ],
+        "warnings": []
+      },
+      "empty": {
+        "attempts": [],
+        "warnings": []
+      },
+      "exception": {
+        "exception": "moodle_exception",
+        "errorcode": "invalidrecord",
+        "message": "Can not find data record in database"
+      },
+      "invalidtoken": {
+        "exception": "webservice_access_exception",
+        "errorcode": "invalidtoken",
+        "message": "Invalid token - token not found"
+      }
+    },
+    "canonical": "{\"empty\":{\"attempts\":[],\"warnings\":[]},\"exception\":{\"errorcode\":\"invalidrecord\",\"exception\":\"moodle_exception\",\"message\":\"Can not find data record in database\"},\"finished_and_inprogress\":{\"attempts\":[{\"attempt\":2,\"id\":901,\"quiz\":567,\"state\":\"inprogress\",\"sumgrades\":null,\"timefinish\":0,\"timestart\":1763650000,\"userid\":42},{\"attempt\":1,\"id\":900,\"quiz\":567,\"state\":\"finished\",\"sumgrades\":8.5,\"timefinish\":1763600000,\"timestart\":1763500000,\"userid\":42},{\"attempt\":0,\"id\":899,\"quiz\":567,\"state\":\"finished\",\"sumgrades\":3,\"timefinish\":1763450000,\"timestart\":1763400000,\"userid\":42}],\"warnings\":[]},\"invalidtoken\":{\"errorcode\":\"invalidtoken\",\"exception\":\"webservice_access_exception\",\"message\":\"Invalid token - token not found\"},\"only_inprogress\":{\"attempts\":[{\"attempt\":1,\"id\":901,\"quiz\":567,\"state\":\"inprogress\",\"sumgrades\":null,\"timefinish\":0,\"timestart\":1763650000,\"userid\":42}],\"warnings\":[]}}"
+  },
+  {
+    "name": "assign_status_fixture",
+    "value": {
+      "submitted": {
+        "lastattempt": {
+          "submission": {
+            "id": 77,
+            "userid": 42,
+            "status": "submitted",
+            "timemodified": 1763500000,
+            "attemptnumber": 0
+          },
+          "teamsubmission": null,
+          "submissionsenabled": true,
+          "locked": false,
+          "gradingstatus": "notgraded"
+        },
+        "warnings": []
+      },
+      "new": {
+        "lastattempt": {
+          "submission": {
+            "id": 0,
+            "userid": 42,
+            "status": "new",
+            "timemodified": 0,
+            "attemptnumber": 0
+          },
+          "submissionsenabled": true,
+          "locked": false,
+          "gradingstatus": "notgraded"
+        },
+        "warnings": []
+      },
+      "draft": {
+        "lastattempt": {
+          "submission": {
+            "id": 78,
+            "userid": 42,
+            "status": "draft",
+            "timemodified": 1763499000,
+            "attemptnumber": 0
+          },
+          "submissionsenabled": true,
+          "locked": false,
+          "gradingstatus": "notgraded"
+        },
+        "warnings": []
+      }
+    },
+    "canonical": "{\"draft\":{\"lastattempt\":{\"gradingstatus\":\"notgraded\",\"locked\":false,\"submission\":{\"attemptnumber\":0,\"id\":78,\"status\":\"draft\",\"timemodified\":1763499000,\"userid\":42},\"submissionsenabled\":true},\"warnings\":[]},\"new\":{\"lastattempt\":{\"gradingstatus\":\"notgraded\",\"locked\":false,\"submission\":{\"attemptnumber\":0,\"id\":0,\"status\":\"new\",\"timemodified\":0,\"userid\":42},\"submissionsenabled\":true},\"warnings\":[]},\"submitted\":{\"lastattempt\":{\"gradingstatus\":\"notgraded\",\"locked\":false,\"submission\":{\"attemptnumber\":0,\"id\":77,\"status\":\"submitted\",\"timemodified\":1763500000,\"userid\":42},\"submissionsenabled\":true,\"teamsubmission\":null},\"warnings\":[]}}"
+  }
+]

@@ -12,6 +12,7 @@ const out_dir = join(web_root, 'screenshots');
 mkdirSync(out_dir, { recursive: true });
 
 const BASE = 'http://127.0.0.1:3000';
+const SS_LANG = process.env.SS_LANG ?? 'en';
 const CHALLENGE_ID = process.env.CHALLENGE_ID ?? '1';
 const VERIFY_ID = process.env.VERIFY_ID ?? CHALLENGE_ID;
 // Participant a1 (Anvil account index 4): has a stake, a completed claim and a badge after the E2E run.
@@ -85,6 +86,17 @@ try {
           viewport: { width: vp.width, height: vp.height },
           colorScheme: theme,
         });
+        // The app reads its language from localStorage 'ss_lang' ('vi' | 'en') before first render.
+        await ctx.addInitScript(
+          (lang) => {
+            try {
+              window.localStorage.setItem('ss_lang', lang);
+            } catch {
+              // storage unavailable: app falls back to its default language
+            }
+          },
+          SS_LANG,
+        );
         const page = await ctx.newPage();
         if (route.wallet) {
           await page.addInitScript(wallet_init_script, { acct: A1, rpc_url: RPC });

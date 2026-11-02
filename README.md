@@ -1,225 +1,261 @@
-<div align="center">
-
-<h1>StudyStake</h1>
-
-<img src="assets/logo_animated.svg" width="180" alt="StudyStake logo">
-
-<p><b>Commit to studying. Never lose your principal.</b></p>
-
-<p>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-0e6ba8?style=for-the-badge" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/Avalanche-E84142?style=for-the-badge&logo=avalanche&logoColor=white" alt="Avalanche">
-  <img src="https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity&logoColor=white" alt="Solidity 0.8.28">
-  <img src="https://img.shields.io/badge/Foundry-1F1F1F?style=for-the-badge" alt="Foundry">
-  <img src="https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 15">
-  <img src="https://img.shields.io/badge/Cloudflare%20Workers-F38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white" alt="Cloudflare Workers">
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/cover-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/cover-light.svg">
+    <img src="assets/cover-light.svg" alt="StudyStake: Commit to studying. Never lose your principal." width="100%">
+  </picture>
 </p>
 
-<p>
-  <img src="https://img.shields.io/badge/Network-Fuji%20testnet%20%28deploy%20in%20progress%29-555555?style=for-the-badge" alt="Network: Fuji testnet (deploy in progress)">
-  <img src="https://img.shields.io/badge/tests-226%20passing-2EA44F?style=for-the-badge" alt="Tests: 226 passing">
-  <img src="https://img.shields.io/badge/Hackathon-Team1%20Vietnam%20UniHack%202026-E84142?style=for-the-badge" alt="Hackathon: Team1 Vietnam UniHack 2026">
-  <a href="https://github.com/ndgthuan/studystake/stargazers"><img src="https://img.shields.io/github/stars/ndgthuan/studystake?style=for-the-badge" alt="GitHub stars"></a>
-  <a href="https://github.com/ndgthuan/studystake/commits"><img src="https://img.shields.io/github/last-commit/ndgthuan/studystake?style=for-the-badge" alt="Last commit"></a>
+<p align="center">
+  <b><a href="#why-studystake">Why</a></b> &nbsp;·&nbsp;
+  <b><a href="#features">Features</a></b> &nbsp;·&nbsp;
+  <b><a href="#how-it-works">How it works</a></b> &nbsp;·&nbsp;
+  <b><a href="#guarantees">Guarantees</a></b> &nbsp;·&nbsp;
+  <b><a href="#quick-start">Quick start</a></b>
 </p>
 
-<p>
-  <a href="docs/SPEC.md"><b>Spec</b></a> &nbsp;·&nbsp;
-  <a href="docs/THREAT_MODEL.md"><b>Threat model</b></a> &nbsp;·&nbsp;
-  <a href="docs/CONTRACTS.md"><b>Contracts</b></a> &nbsp;·&nbsp;
-  <a href="docs/ORACLE.md"><b>Oracle</b></a>
+<p align="center">
+  <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/license-MIT-0e6ba8?style=flat"></a>
+  <img alt="Avalanche" src="https://img.shields.io/badge/Avalanche-E84142?style=flat&logo=avalanche&logoColor=white">
+  <img alt="Tests: 226 passing" src="https://img.shields.io/badge/tests-226%20passing-2EA44F?style=flat">
+  <img alt="Network: Fuji, deploy in progress" src="https://img.shields.io/badge/network-Fuji%20(deploy%20in%20progress)-555555?style=flat">
+  <img alt="UniHack 2026" src="https://img.shields.io/badge/UniHack-2026-E84142?style=flat">
 </p>
-<p><i>(design docs are in Vietnamese)</i></p>
 
-<img src="assets/banner_flow.svg" width="100%" alt="Flow: Stake, Vault earns yield, Submit work (Moodle), Oracle Merkle settle, Principal + reward">
+<p align="center">
+  Part of <b>Team1 Vietnam UniHack 2026</b> on Avalanche. &nbsp;·&nbsp;
+  Specs: <a href="docs/SPEC.md">Spec</a> · <a href="docs/THREAT_MODEL.md">Threat model</a> · <a href="docs/CONTRACTS.md">Contracts</a> · <a href="docs/ORACLE.md">Oracle</a> · <a href="docs/WEB.md">Web</a> <i>(design docs are in Vietnamese)</i>
+</p>
 
-</div>
+---
 
-StudyStake is a dApp on **Avalanche** (C-Chain; the demo targets the Fuji testnet) that helps students keep their Moodle submission deadlines. Students stake USDC, and the deposit goes into a yield vault. Students who complete their work get their principal back, plus a share of the pool's yield and a sponsor bonus. Students who miss the deadline still get back **100% of their principal** and forfeit only the bonus.
+## Why StudyStake
 
-This project is part of **Team1 Vietnam UniHack** (Avalanche).
+Students miss Moodle quizzes and assignment deadlines. Reminder apps are easy to ignore. Betting-style commitment apps such as StickK and Beeminder add real stakes, but they feel like gambling, and losing real money puts many people off trying them.
 
-## Screenshots
+StudyStake takes a different route. A student stakes between 1 and 100 USDC on a challenge such as "CSC10002 quiz, weeks 10 to 12". Finishing the work returns the principal plus a share of the pool's yield and a sponsor bonus. Missing the deadline still returns 100% of the principal. Only the yield and bonus are shared among completers.
 
-### Desktop
+Stakes, yield shares, and proofs are settled through a Merkle root on Avalanche, so anyone can verify the payout math instead of trusting a company that holds the money.
 
-![StudyStake landing page, desktop dark](web/screenshots/landing_1280_dark.png)
+## Features
 
-### Mobile
-
-<div align="center">
-<table align="center" width="100%">
+<table>
   <tr>
-    <td width="25%" align="center"><img src="web/screenshots/challenge_detail_375_dark.png" width="150" alt="Challenge detail, mobile dark"><br><b>Challenge detail</b></td>
-    <td width="25%" align="center"><img src="web/screenshots/me_375_dark.png" width="150" alt="Profile, mobile dark"><br><b>Profile</b></td>
-    <td width="25%" align="center"><img src="web/screenshots/link_375_dark.png" width="150" alt="Moodle link, mobile dark"><br><b>Moodle link</b></td>
-    <td width="25%" align="center"><img src="web/screenshots/challenges_375_dark.png" width="150" alt="Challenge list, mobile dark"><br><b>Challenge list</b></td>
+    <td align="center" valign="top" width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/feature-noloss-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="assets/feature-noloss-light.svg">
+        <img src="assets/feature-noloss-light.svg" alt="Stake flows into a yield vault and returns with yield" width="100%">
+      </picture>
+      <h3>No-loss staking</h3>
+      <p>Your stake sits in an ERC-4626 yield vault. Your principal always comes back; only the yield is shared among students who finished.</p>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/feature-oracle-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="assets/feature-oracle-light.svg">
+        <img src="assets/feature-oracle-light.svg" alt="A Merkle tree with a verified root" width="100%">
+      </picture>
+      <h3>Verifiable oracle</h3>
+      <p>The oracle posts a Merkle root and an evidence hash on-chain. Anyone can re-check the evidence in the browser.</p>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/feature-streaks-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="assets/feature-streaks-light.svg">
+        <img src="assets/feature-streaks-light.svg" alt="A soulbound badge with a streak number" width="100%">
+      </picture>
+      <h3>Soulbound streaks</h3>
+      <p>A non-transferable ERC-721 badge (ERC-5192) records your completions and streak on-chain. It is yours and cannot be sold.</p>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/feature-onboarding-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="assets/feature-onboarding-light.svg">
+        <img src="assets/feature-onboarding-light.svg" alt="Google sign-in, embedded wallet, then one signature" width="100%">
+      </picture>
+      <h3>One-transaction onboarding</h3>
+      <p>Sign in with Google through Privy, then stake with a single EIP-2612 permit signature. No seed phrase, no separate approval.</p>
+    </td>
   </tr>
 </table>
-</div>
-
-<details>
-<summary>More images (desktop, light mode)</summary>
-
-| Verify page (dark) | Challenge detail (dark) |
-| :---: | :---: |
-| ![Verify page, desktop dark](web/screenshots/verify_1280_dark.png) | ![Challenge detail, desktop dark](web/screenshots/challenge_detail_1280_dark.png) |
-| ![Admin page, desktop dark](web/screenshots/admin_1280_dark.png) | ![Landing page, desktop light](web/screenshots/landing_1280_light.png) |
-
-</details>
-
-Other images (light mode, admin, challenge list, Moodle link) are in [`web/screenshots/`](web/screenshots/).
-
-## Problem
-
-Students often miss quiz and assignment deadlines on Moodle because they lack short-term motivation. Reminder apps are frequently ignored. "Betting" models such as StickK and Beeminder can feel like gambling, and the risk of losing real money keeps people from trying them.
-
-StudyStake uses a **no-loss** mechanism: nobody loses their principal. Motivation comes from three sources: the pool's yield is paid only to those who complete their work, a reward fund from the school, a club or a sponsor, and soulbound badges plus public on-chain streaks.
 
 ## How it works
 
-1. **Sign in** with Google via Privy. Users get an embedded wallet, so no MetaMask or seed phrase is needed. External wallets still work.
-2. **Link Moodle** using a Moodle mobile token. The oracle determines the `userid` and binds `(site, userid) ↔ wallet` one-to-one.
-3. **Stake** 1–100 USDC in **one transaction** (EIP-2612 `permit` + join).
-4. **Stake → vault earns yield → Moodle/Demo LMS oracle → Merkle settle → dispute window → claim.** The oracle reads submission status, builds a Merkle root, and posts it to the contract along with an evidence hash. A dispute window follows before the result is finalized.
-5. **Receive funds:** completers get their principal, a share of the yield in proportion to their stake, the sponsor reward, and a soulbound badge (streak +1). Non-completers get their principal back.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/architecture-light.svg">
+    <img src="assets/architecture-light.svg" alt="Architecture: web app, oracle, Moodle or demo LMS, and the Avalanche contracts" width="100%">
+  </picture>
+</p>
 
-Principle: **everyone keeps their principal.** Yield and rewards are shared only among completers.
+**Components**
 
-## Architecture
+- **Web app** (`web/`): Next.js App Router with Privy sign-in, wagmi and viem, and Vietnamese and English UI.
+- **Oracle** (`oracle/`): Cloudflare Worker in TypeScript. It has a Moodle adapter, a Demo LMS adapter, an evaluator, the Merkle builder, the AVAX faucet, and a cron job that settles challenges.
+- **Evidence store:** public evidence JSON in Cloudflare R2. Only its hash goes on-chain, and the evidence contains no names or student IDs.
+- **StudyStakeManager** (`contracts/`): holds challenges, stakes, sponsor bonuses, settlement, disputes, and claims.
+- **MockYieldVault:** ERC-4626 yield source used on Fuji. Its yield is simulated.
+- **StudyBadge:** soulbound ERC-721 streak badge (ERC-5192).
 
-```
-┌──────────────┐  Privy auth   ┌──────────────────────────┐
-│  web (Next)  │──────────────▶│  oracle (CF Worker)       │
-│ Privy+wagmi  │  link/status  │  - Moodle adapter         │
-│ viem, i18n   │◀──────────────│  - Demo LMS adapter       │
-└──────┬───────┘               │  - Merkle builder         │
-       │ tx (join/claim)       │  - faucet drip            │
-       ▼                       │  - cron: settle()         │
-┌─────────────────────────────┐└───────┬──────────────────┘
-│ Avalanche Fuji C-Chain       │◀───────┘ settle(root, evidence_hash)
-│  StudyStakeManager           │
-│  ├─ IYieldSource → MockYieldVault (ERC-4626, Fuji)       │
-│  │                 AaveV3Adapter (mainnet, roadmap)       │
-│  └─ StudyBadge (ERC-721 soulbound, ERC-5192)             │
-└─────────────────────────────┘
-Evidence (JSON, hashes only, no names): Cloudflare R2; keccak stored on-chain
-```
+**Lifecycle**
 
-Monorepo:
+1. **Join.** Sign in, link your Moodle token, and stake 1 to 100 USDC with one `join_with_permit` transaction. The stake goes into the vault and earns yield while the deadline runs.
+2. **Submit.** Complete the quiz or assignment in Moodle as usual.
+3. **Settle.** After the end time, the oracle reads submission status, builds the Merkle root of completers, and calls `settle(root, completed_count, completed_stake, evidence_hash)`.
+4. **Dispute window.** Anyone who staked can dispute the result during the window (24 hours in production, 10 minutes in the demo). A guardian can then replace the root.
+5. **Finalize.** Anyone can call `finalize`. It redeems all vault shares and fixes the reward pot.
+6. **Claim.** Each student claims once. Completers receive principal, a yield share, and the reward. The badge is minted on first completion, and the streak goes up by one.
 
-| Directory | Contents |
-|---|---|
-| `contracts/` | Foundry, Solidity 0.8.28, OpenZeppelin v5 |
-| `oracle/` | Cloudflare Worker, TypeScript, viem, KV + R2 |
-| `web/` | Next.js App Router, Privy, wagmi/viem, Tailwind, Vietnamese/English UI, pure-black dark mode |
-| `docs/` | Specs and technical documentation |
+Principle: **everyone keeps their principal.** Yield and rewards are shared only among students who completed their work.
+
+### Payout example
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/payout-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/payout-light.svg">
+    <img src="assets/payout-light.svg" alt="Payout bars: Student A 100 to 129.99, Student B 200 to 259.99, Student C 300 with no reward" width="100%">
+  </picture>
+</p>
+
+*Real numbers from the end-to-end test on local Anvil: 60 USDC simulated yield + 30 USDC sponsor bonus, split pro-rata between completers. Nobody loses principal.*
+
+## Product tour
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="web/screenshots/landing_1280_dark_cropped.png" alt="Landing page, desktop dark" width="100%">
+      <sub><b>Landing.</b> The entry point: challenges, the pitch in one line, and sign-in.</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="web/screenshots/challenge_detail_1280_dark.png" alt="Challenge detail, desktop dark" width="100%">
+      <sub><b>Challenge detail.</b> Stake range, deadline, pool size, and the state you are in.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="web/screenshots/verify_1280_dark.png" alt="Verify page, desktop dark" width="100%">
+      <sub><b>Verify.</b> Anyone can re-check the oracle's evidence in the browser.</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="web/screenshots/me_1280_dark.png" alt="Profile, desktop dark" width="100%">
+      <sub><b>Profile.</b> Your account view at desktop width.</sub>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <img src="web/screenshots/challenge_detail_375_dark.png" width="240" alt="Challenge detail, mobile dark">
+    </td>
+    <td align="center" valign="top">
+      <img src="web/screenshots/me_375_dark.png" width="240" alt="Profile, mobile dark">
+    </td>
+  </tr>
+</table>
+
+<p align="center"><sub>More captures, including light mode, the admin view, the challenge list, and the Moodle link, are in <a href="web/screenshots/"><code>web/screenshots/</code></a>.</sub></p>
+
+## Guarantees
+
+The core guarantee: even if the oracle, creator, guardian, or admin is compromised, users can still withdraw their principal, unless the yield vault itself takes a loss.
+
+1. **Principal is always withdrawable.** No admin function can withdraw principal. Vault losses are shared pro rata, see [`StudyStakeManager.t.sol`](contracts/test/StudyStakeManager.t.sol).
+2. **`claim` and `expire` are never paused.** Pause blocks only `join` and `settle`, see [`StudyStakeManager.t.sol`](contracts/test/StudyStakeManager.t.sol).
+3. **The oracle cannot move principal.** It only sets the reward split, and an under-reported stake is still capped by the reward pot, see [`StudyStakeManager.t.sol`](contracts/test/StudyStakeManager.t.sol).
+4. **Rewards are capped by the pot.** Total rewards paid never exceed `reward_pot`, and only unclaimed rewards are swept to the treasury after 180 days, see [`StudyStakeManager.t.sol`](contracts/test/StudyStakeManager.t.sol).
+5. **One claim per address.** A second `claim` reverts with `AlreadyClaimed`, see [`StudyStakeManager.t.sol`](contracts/test/StudyStakeManager.t.sol).
+
+Invariant and fuzz coverage: [`StudyStakeFuzz.t.sol`](contracts/test/StudyStakeFuzz.t.sol) and [`invariant/`](contracts/test/invariant/).
+
+Full threat list and residual risks: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Avalanche integration
 
-**Done (code + tests on local Anvil; Fuji deploy in progress):**
+- [x] **ERC-4626 yield vault.** `MockYieldVault` is the yield source. Its yield is simulated on testnet.
+- [x] **Merkle settlement with evidence hash.** The oracle posts a root plus a hash of public evidence, so results are auditable without names or student IDs.
+- [x] **Soulbound badge (ERC-721 + ERC-5192).** Completion streaks are on-chain and non-transferable.
+- [x] **One-transaction stake via EIP-2612 `permit`.** The user signs once, with no separate approval.
+- [x] **AVAX gas faucet for new users.** Provided by the oracle Worker so first-time users can transact.
+- [ ] **Privy embedded wallet (Google sign-in).** Code is integrated, but it has not been tried with a real App ID.
+- [ ] **Aave v3 adapter on C-Chain mainnet.** Real yield. Roadmap, not started.
+- [ ] **x402 "Study Reputation API".** Roadmap, not started.
+- [ ] **StudyNet L1 for the school (ICM, Builder Console).** Roadmap, not started.
+- [ ] **zkTLS (Reclaim or TLSNotary) to replace the trusted oracle.** Roadmap, not started.
 
-| Item | Status | Notes |
-|---|:---:|---|
-| ERC-4626 mock vault (`MockYieldVault`) as the yield source | ✓ | Simulated yield on testnet |
-| Settle via Merkle root with evidence hash | ✓ | |
-| Soulbound badge (ERC-721 + ERC-5192) with on-chain SVG | ✓ | |
-| One-transaction stake via EIP-2612 `permit` | ✓ | |
-| Privy embedded wallet (Google sign-in, optional) | ✗ | Code integrated, not yet tried with a real App ID |
-| AVAX gas faucet for new users (oracle Worker) | ✓ | |
-
-**Roadmap (not started):**
-- Aave v3 adapter for C-Chain mainnet (real yield)
-- x402 "Study Reputation API"
-- StudyNet, a dedicated L1 for the school, via Builder Console, with ICM
-- zkTLS (Reclaim/TLSNotary) to replace the trusted oracle
-
-## Security
-
-Details on threats and mitigations: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
-
-**Core guarantee:** even if the oracle, creator, guardian or admin is compromised, users can still withdraw their principal (unless the yield vault itself takes a loss).
-- No admin function can withdraw principal.
-- `claim` and `expire` are never paused; pause blocks only `join` and `settle`.
-- The oracle cannot touch principal. It only decides rewards, and rewards are capped by the rest of the pool.
-- Evidence is public and contains no names or student IDs. The `/verify` page lets anyone check it.
-
-**Residual risks (stated explicitly):** the vault can lose money; rewards depend on an honest oracle until zkTLS is in place; Moodle tokens are stored encrypted and require the user's consent on privacy.
-
-## Test status
+## Quality
 
 | Component | Tests | Command |
 |---|---|---|
-| Contracts (Foundry) | 92 tests, including fuzz and invariant; `StudyStakeManager` ~98% line coverage | `forge test` |
-| Oracle (Worker) | 100 vitest tests + E2E on Anvil | `npm test`, `npm run e2e:anvil` |
-| Web (Next.js) | 34 vitest tests + Playwright E2E on Anvil | `npm test`, `npm run e2e` |
+| Contracts (Foundry) | 92, including fuzz and invariant. `StudyStakeManager` at about 98% line coverage. | `forge test` |
+| Oracle (Cloudflare Worker) | 100 vitest tests plus E2E on Anvil | `npm test`, `npm run e2e:anvil` |
+| Web (Next.js) | 34 vitest tests plus Playwright E2E on Anvil | `npm test`, `npm run e2e` |
 | **Total** | **226** | |
 
-## Deployment addresses
+> [!NOTE]
+> Honesty notes:
+> - Everything has been built and tested on **local Anvil only**. The Fuji deployment is in progress and the contract addresses are TBD.
+> - **Yield is simulated** on testnet by `MockYieldVault`. It is not real market yield.
+> - **Privy is integrated but untested** with a real App ID.
+> - Rewards depend on an honest oracle until zkTLS replaces it.
 
-| Network | Contract | Address |
-|---|---|---|
-| Avalanche Fuji | StudyStakeManager | Fuji: to be updated soon (TBD) |
-| Avalanche Fuji | MockYieldVault | Fuji: to be updated soon (TBD) |
-| Avalanche Fuji | StudyBadge | Fuji: to be updated soon (TBD) |
+## Quick start
 
-## Documentation
+1. **Clone with submodules.** Foundry dependencies live in `contracts/lib/`.
 
-- [`docs/SPEC.md`](docs/SPEC.md): specification and user flows
-- [`docs/CONTRACTS.md`](docs/CONTRACTS.md): smart contracts
-- [`docs/ORACLE.md`](docs/ORACLE.md): Cloudflare Worker oracle
-- [`docs/WEB.md`](docs/WEB.md): web application
-- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md): threat model
+   ```bash
+   git clone --recurse-submodules https://github.com/ndgthuan/studystake.git
+   cd studystake
+   ```
 
-## Run locally
+   If you already cloned without submodules, run `git submodule update --init --recursive`.
 
-<details>
-<summary><b>Local setup instructions</b></summary>
+2. **Run the contract tests.**
 
-Clone with submodules (Foundry dependencies live in `contracts/lib/`):
+   ```bash
+   cd contracts
+   forge test
+   ```
 
-```bash
-git clone --recurse-submodules https://github.com/ndgthuan/studystake.git
-cd studystake
-```
+3. **Run the oracle tests.**
 
-If you already cloned without submodules: `git submodule update --init --recursive`.
+   ```bash
+   cd oracle
+   npm i
+   npm test
+   npm run e2e:anvil
+   ```
 
-**Contracts:**
-```bash
-cd contracts
-forge test
-```
+   To start the Worker, create `oracle/.dev.vars` from `oracle/.dev.vars.example`, then run `npm run dev`. This file is git-ignored and must never be committed.
 
-**Oracle:**
-```bash
-cd oracle
-npm i
-npm test
-npm run e2e:anvil
-```
-Create `oracle/.dev.vars` from `oracle/.dev.vars.example` to run `npm run dev`. This file is git-ignored and must not be committed.
+4. **Start the web app.**
 
-**Web:**
-```bash
-cd web
-npm i --legacy-peer-deps
-npm run sync      # sync deployment addresses into web
-npm run dev
-```
-Create `web/.env.local` (do not commit it).
+   ```bash
+   cd web
+   npm i --legacy-peer-deps
+   npm run sync      # copy deployment addresses into web
+   npm run dev
+   ```
 
-</details>
+   Create `web/.env.local` for your keys. Do not commit it.
 
-## Project layout
+> [!IMPORTANT]
+> `.dev.vars` and `.env.local` hold secrets. Both are git-ignored. Keep them out of commits and screenshots.
+
+## Repository layout
 
 ```text
-contracts/      Foundry, Solidity 0.8.28 (smart contracts)
-oracle/         Cloudflare Worker (TypeScript): Moodle adapter, Demo LMS adapter, Merkle builder
-web/            Next.js App Router: Privy, wagmi/viem, Tailwind, Vietnamese/English UI
-docs/           Specs and technical documentation
-assets/         Logo and banner for the README
+contracts/   Foundry, Solidity 0.8.28 (StudyStakeManager, StudyBadge, mocks)
+oracle/      Cloudflare Worker (TypeScript): Moodle adapter, Demo LMS adapter, Merkle builder
+web/         Next.js App Router: Privy, wagmi/viem, Tailwind, Vietnamese/English UI
+docs/        Spec, contracts, threat model, oracle and web notes
+assets/      Images for this README (cover, architecture, features, payout chart)
 ```
 
 ## Team

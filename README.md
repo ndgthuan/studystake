@@ -4,8 +4,7 @@
 
 <img src="assets/logo_animated.svg" width="180" alt="StudyStake logo">
 
-<p><b>Cam kết học, không mất gốc.</b></p>
-<p><i>Commit to studying, never lose your principal.</i></p>
+<p><b>Commit to studying. Never lose your principal.</b></p>
 
 <p>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-0e6ba8?style=for-the-badge" alt="MIT License"></a>
@@ -26,68 +25,69 @@
 </p>
 
 <p>
-  <a href="docs/SPEC.md"><b>Tài liệu</b></a> &nbsp;·&nbsp;
+  <a href="docs/SPEC.md"><b>Spec</b></a> &nbsp;·&nbsp;
   <a href="docs/THREAT_MODEL.md"><b>Threat model</b></a> &nbsp;·&nbsp;
-  <a href="docs/CONTRACTS.md"><b>Kiến trúc contract</b></a> &nbsp;·&nbsp;
+  <a href="docs/CONTRACTS.md"><b>Contracts</b></a> &nbsp;·&nbsp;
   <a href="docs/ORACLE.md"><b>Oracle</b></a>
 </p>
+<p><i>(design docs are in Vietnamese)</i></p>
 
-<img src="assets/banner_flow.svg" width="100%" alt="Luồng: Đặt cọc, Vault sinh lãi, Nộp bài Moodle, Oracle Merkle, Nhận gốc và thưởng">
+<img src="assets/banner_flow.svg" width="100%" alt="Flow: Stake, Vault earns yield, Submit work (Moodle), Oracle Merkle settle, Principal + reward">
 
 </div>
 
-StudyStake là dApp trên **Avalanche** (C-Chain; bản demo nhắm Fuji testnet) giúp sinh viên giữ cam kết nộp bài Moodle đúng hạn. Sinh viên đặt cọc USDC, tiền cọc chạy vào vault sinh lãi. Người hoàn thành nhận lại gốc cộng phần lãi của cả nhóm và quỹ thưởng tài trợ. Người trễ hạn vẫn nhận lại **100% gốc**, chỉ mất phần thưởng.
+StudyStake is a dApp on **Avalanche** (C-Chain; the demo targets the Fuji testnet) that helps students keep their Moodle submission deadlines. Students stake USDC, and the deposit goes into a yield vault. Students who complete their work get their principal back, plus a share of the pool's yield and a sponsor bonus. Students who miss the deadline still get back **100% of their principal** and forfeit only the bonus.
 
-Dự án tham gia **Team1 Vietnam UniHack** (Avalanche).
+This project is part of **Team1 Vietnam UniHack** (Avalanche).
 
-## Ảnh chụp màn hình
+## Screenshots
 
 ### Desktop
 
-![Trang chủ StudyStake, desktop dark](web/screenshots/landing_1280_dark.png)
+![StudyStake landing page, desktop dark](web/screenshots/landing_1280_dark.png)
 
 ### Mobile
 
 <div align="center">
 <table align="center" width="100%">
   <tr>
-    <td width="25%" align="center"><img src="web/screenshots/challenge_detail_375_dark.png" width="150" alt="Chi tiết challenge, mobile dark"><br><b>Chi tiết challenge</b></td>
-    <td width="25%" align="center"><img src="web/screenshots/me_375_dark.png" width="150" alt="Hồ sơ cá nhân, mobile dark"><br><b>Hồ sơ cá nhân</b></td>
-    <td width="25%" align="center"><img src="web/screenshots/link_375_dark.png" width="150" alt="Liên kết Moodle, mobile dark"><br><b>Liên kết Moodle</b></td>
-    <td width="25%" align="center"><img src="web/screenshots/challenges_375_dark.png" width="150" alt="Danh sách challenge, mobile dark"><br><b>Danh sách challenge</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/challenge_detail_375_dark.png" width="150" alt="Challenge detail, mobile dark"><br><b>Challenge detail</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/me_375_dark.png" width="150" alt="Profile, mobile dark"><br><b>Profile</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/link_375_dark.png" width="150" alt="Moodle link, mobile dark"><br><b>Moodle link</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/challenges_375_dark.png" width="150" alt="Challenge list, mobile dark"><br><b>Challenge list</b></td>
   </tr>
 </table>
 </div>
 
 <details>
-<summary>Thêm ảnh (desktop, light mode)</summary>
+<summary>More images (desktop, light mode)</summary>
 
-| Trang xác minh (dark) | Chi tiết challenge (dark) |
+| Verify page (dark) | Challenge detail (dark) |
 | :---: | :---: |
-| ![Trang xác minh, desktop dark](web/screenshots/verify_1280_dark.png) | ![Chi tiết challenge, desktop dark](web/screenshots/challenge_detail_1280_dark.png) |
-| ![Trang admin, desktop dark](web/screenshots/admin_1280_dark.png) | ![Trang chủ, desktop light](web/screenshots/landing_1280_light.png) |
+| ![Verify page, desktop dark](web/screenshots/verify_1280_dark.png) | ![Challenge detail, desktop dark](web/screenshots/challenge_detail_1280_dark.png) |
+| ![Admin page, desktop dark](web/screenshots/admin_1280_dark.png) | ![Landing page, desktop light](web/screenshots/landing_1280_light.png) |
 
 </details>
 
-Các ảnh khác (light mode, admin, danh sách challenge, liên kết Moodle) nằm trong [`web/screenshots/`](web/screenshots/).
+Other images (light mode, admin, challenge list, Moodle link) are in [`web/screenshots/`](web/screenshots/).
 
-## Vấn đề
+## Problem
 
-Sinh viên hay trễ quiz và bài nộp trên Moodle vì thiếu động lực ngắn hạn. App nhắc lịch thường bị bỏ qua. Các mô hình "cược tiền" (StickK, Beeminder) dễ gây cảm giác cờ bạc, và việc mất tiền thật khiến người dùng ngại thử.
+Students often miss quiz and assignment deadlines on Moodle because they lack short-term motivation. Reminder apps are frequently ignored. "Betting" models such as StickK and Beeminder can feel like gambling, and the risk of losing real money keeps people from trying them.
 
-StudyStake dùng cơ chế **no-loss**: không ai mất gốc. Động lực đến từ ba nguồn: lãi của cả pool chỉ chia cho người hoàn thành, quỹ thưởng của trường/CLB/nhà tài trợ, và huy hiệu soulbound cùng chuỗi ngày (streak) công khai on-chain.
+StudyStake uses a **no-loss** mechanism: nobody loses their principal. Motivation comes from three sources: the pool's yield is paid only to those who complete their work, a reward fund from the school, a club or a sponsor, and soulbound badges plus public on-chain streaks.
 
-## Cách hoạt động
+## How it works
 
-1. **Đăng nhập** bằng Google qua Privy. Người dùng có ví embedded, không cần MetaMask hay seed phrase. Ví ngoài vẫn dùng được.
-2. **Liên kết Moodle** bằng Moodle mobile token. Oracle xác định `userid` và ràng buộc `(site, userid) ↔ ví` một-một.
-3. **Đặt cọc** 1–100 USDC trong **một giao dịch** (EIP-2612 `permit` + join).
-4. **Stake → vault sinh lãi → Moodle/Demo LMS oracle → Merkle settle → cửa sổ khiếu nại → claim.** Oracle đọc trạng thái nộp bài, tạo Merkle root và đưa lên contract cùng hash bằng chứng. Sau đó có cửa sổ khiếu nại trước khi chốt kết quả.
-5. **Nhận tiền:** người hoàn thành nhận gốc, phần lãi chia theo cọc, phần thưởng tài trợ và huy hiệu SBT (streak +1). Người không hoàn thành nhận lại gốc.
+1. **Sign in** with Google via Privy. Users get an embedded wallet, so no MetaMask or seed phrase is needed. External wallets still work.
+2. **Link Moodle** using a Moodle mobile token. The oracle determines the `userid` and binds `(site, userid) ↔ wallet` one-to-one.
+3. **Stake** 1–100 USDC in **one transaction** (EIP-2612 `permit` + join).
+4. **Stake → vault earns yield → Moodle/Demo LMS oracle → Merkle settle → dispute window → claim.** The oracle reads submission status, builds a Merkle root, and posts it to the contract along with an evidence hash. A dispute window follows before the result is finalized.
+5. **Receive funds:** completers get their principal, a share of the yield in proportion to their stake, the sponsor reward, and a soulbound badge (streak +1). Non-completers get their principal back.
 
-Nguyên tắc: **mọi người đều giữ nguyên gốc.** Lãi và thưởng chỉ chia cho người hoàn thành.
+Principle: **everyone keeps their principal.** Yield and rewards are shared only among completers.
 
-## Kiến trúc
+## Architecture
 
 ```
 ┌──────────────┐  Privy auth   ┌──────────────────────────┐
@@ -104,86 +104,87 @@ Nguyên tắc: **mọi người đều giữ nguyên gốc.** Lãi và thưởng
 │  │                 AaveV3Adapter (mainnet, roadmap)       │
 │  └─ StudyBadge (ERC-721 soulbound, ERC-5192)             │
 └─────────────────────────────┘
-Bằng chứng (JSON, chỉ chứa hash, không có tên): Cloudflare R2, keccak lưu on-chain
+Evidence (JSON, hashes only, no names): Cloudflare R2; keccak stored on-chain
 ```
 
 Monorepo:
 
-| Thư mục | Nội dung |
+| Directory | Contents |
 |---|---|
 | `contracts/` | Foundry, Solidity 0.8.28, OpenZeppelin v5 |
 | `oracle/` | Cloudflare Worker, TypeScript, viem, KV + R2 |
-| `web/` | Next.js App Router, Privy, wagmi/viem, Tailwind, giao diện Việt/Anh, dark mode nền đen tuyền |
-| `docs/` | Đặc tả và tài liệu kỹ thuật |
+| `web/` | Next.js App Router, Privy, wagmi/viem, Tailwind, Vietnamese/English UI, pure-black dark mode |
+| `docs/` | Specs and technical documentation |
 
-## Tích hợp Avalanche
+## Avalanche integration
 
-**Đã làm (code + test trên Anvil local; deploy Fuji đang chuẩn bị):**
+**Done (code + tests on local Anvil; Fuji deploy in progress):**
 
-| Hạng mục | Trạng thái | Ghi chú |
+| Item | Status | Notes |
 |---|:---:|---|
-| Vault ERC-4626 mock (`MockYieldVault`) làm nguồn lãi | ✓ | Lãi mô phỏng trên testnet |
-| Settle bằng Merkle root kèm hash bằng chứng | ✓ | |
-| Huy hiệu soulbound (ERC-721 + ERC-5192) với SVG on-chain | ✓ | |
-| Đặt cọc một giao dịch bằng EIP-2612 `permit` | ✓ | |
-| Privy embedded wallet (đăng nhập Google, tùy chọn) | ✗ | Đã tích hợp code, chưa thử với App ID thật |
-| Faucet gas AVAX cho người dùng mới (oracle Worker) | ✓ | |
+| ERC-4626 mock vault (`MockYieldVault`) as the yield source | ✓ | Simulated yield on testnet |
+| Settle via Merkle root with evidence hash | ✓ | |
+| Soulbound badge (ERC-721 + ERC-5192) with on-chain SVG | ✓ | |
+| One-transaction stake via EIP-2612 `permit` | ✓ | |
+| Privy embedded wallet (Google sign-in, optional) | ✗ | Code integrated, not yet tried with a real App ID |
+| AVAX gas faucet for new users (oracle Worker) | ✓ | |
 
-**Lộ trình (chưa làm):**
-- Adapter Aave v3 cho C-Chain mainnet (lãi thật)
+**Roadmap (not started):**
+- Aave v3 adapter for C-Chain mainnet (real yield)
 - x402 "Study Reputation API"
-- StudyNet L1 riêng cho trường, qua Builder Console, kèm ICM
-- zkTLS (Reclaim/TLSNotary) thay cho oracle tin cậy
+- StudyNet, a dedicated L1 for the school, via Builder Console, with ICM
+- zkTLS (Reclaim/TLSNotary) to replace the trusted oracle
 
-## Bảo mật
+## Security
 
-Chi tiết các mối đe dọa và cách chặn: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+Details on threats and mitigations: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
-**Bảo đảm cốt lõi:** dù oracle, creator, guardian hay admin bị hack, gốc của người dùng vẫn rút được (trừ khi chính vault sinh lãi bị lỗ).
-- Không có hàm nào của admin rút được gốc.
-- `claim` và `expire` không bị pause; pause chỉ chặn `join` và `settle`.
-- Oracle không chạm được vào gốc. Nó chỉ quyết định phần thưởng, và thưởng bị chặn bởi phần còn lại của pool.
-- Bằng chứng công khai, không chứa tên hay MSSV. Trang `/verify` cho phép tự kiểm tra.
+**Core guarantee:** even if the oracle, creator, guardian or admin is compromised, users can still withdraw their principal (unless the yield vault itself takes a loss).
+- No admin function can withdraw principal.
+- `claim` and `expire` are never paused; pause blocks only `join` and `settle`.
+- The oracle cannot touch principal. It only decides rewards, and rewards are capped by the rest of the pool.
+- Evidence is public and contains no names or student IDs. The `/verify` page lets anyone check it.
 
-**Rủi ro còn lại (ghi rõ):** vault có thể lỗ; phần thưởng phụ thuộc oracle trung thực cho đến khi có zkTLS; Moodle token được lưu mã hóa và cần người dùng đồng ý về quyền riêng tư.
+**Residual risks (stated explicitly):** the vault can lose money; rewards depend on an honest oracle until zkTLS is in place; Moodle tokens are stored encrypted and require the user's consent on privacy.
 
-## Trạng thái kiểm thử
+## Test status
 
-| Thành phần | Kiểm thử | Lệnh |
+| Component | Tests | Command |
 |---|---|---|
-| Contracts (Foundry) | 92 test, gồm fuzz và invariant; `StudyStakeManager` ~98% line coverage | `forge test` |
-| Oracle (Worker) | 100 test vitest + E2E trên Anvil | `npm test`, `npm run e2e:anvil` |
-| Web (Next.js) | 34 test vitest + E2E Playwright trên Anvil | `npm test`, `npm run e2e` |
+| Contracts (Foundry) | 92 tests, including fuzz and invariant; `StudyStakeManager` ~98% line coverage | `forge test` |
+| Oracle (Worker) | 100 vitest tests + E2E on Anvil | `npm test`, `npm run e2e:anvil` |
+| Web (Next.js) | 34 vitest tests + Playwright E2E on Anvil | `npm test`, `npm run e2e` |
+| **Total** | **226** | |
 
-## Địa chỉ deployment
+## Deployment addresses
 
-| Mạng | Contract | Địa chỉ |
+| Network | Contract | Address |
 |---|---|---|
-| Avalanche Fuji | StudyStakeManager | Fuji: sắp cập nhật (TBD) |
-| Avalanche Fuji | MockYieldVault | Fuji: sắp cập nhật (TBD) |
-| Avalanche Fuji | StudyBadge | Fuji: sắp cập nhật (TBD) |
+| Avalanche Fuji | StudyStakeManager | Fuji: to be updated soon (TBD) |
+| Avalanche Fuji | MockYieldVault | Fuji: to be updated soon (TBD) |
+| Avalanche Fuji | StudyBadge | Fuji: to be updated soon (TBD) |
 
-## Tài liệu
+## Documentation
 
-- [`docs/SPEC.md`](docs/SPEC.md): đặc tả và luồng người dùng
-- [`docs/CONTRACTS.md`](docs/CONTRACTS.md): smart contract
-- [`docs/ORACLE.md`](docs/ORACLE.md): oracle Cloudflare Worker
-- [`docs/WEB.md`](docs/WEB.md): ứng dụng web
-- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md): mô hình đe dọa
+- [`docs/SPEC.md`](docs/SPEC.md): specification and user flows
+- [`docs/CONTRACTS.md`](docs/CONTRACTS.md): smart contracts
+- [`docs/ORACLE.md`](docs/ORACLE.md): Cloudflare Worker oracle
+- [`docs/WEB.md`](docs/WEB.md): web application
+- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md): threat model
 
-## Chạy local
+## Run locally
 
 <details>
-<summary><b>Hướng dẫn chạy local</b></summary>
+<summary><b>Local setup instructions</b></summary>
 
-Clone kèm submodule (dependency Foundry nằm trong `contracts/lib/`):
+Clone with submodules (Foundry dependencies live in `contracts/lib/`):
 
 ```bash
 git clone --recurse-submodules https://github.com/ndgthuan/studystake.git
 cd studystake
 ```
 
-Nếu đã clone mà chưa có submodule: `git submodule update --init --recursive`.
+If you already cloned without submodules: `git submodule update --init --recursive`.
 
 **Contracts:**
 ```bash
@@ -198,44 +199,34 @@ npm i
 npm test
 npm run e2e:anvil
 ```
-Tạo `oracle/.dev.vars` từ `oracle/.dev.vars.example` để chạy `npm run dev`. File này bị git ignore, không được commit.
+Create `oracle/.dev.vars` from `oracle/.dev.vars.example` to run `npm run dev`. This file is git-ignored and must not be committed.
 
 **Web:**
 ```bash
 cd web
 npm i --legacy-peer-deps
-npm run sync      # đồng bộ địa chỉ deployment vào web
+npm run sync      # sync deployment addresses into web
 npm run dev
 ```
-Tạo `web/.env.local` (không commit).
+Create `web/.env.local` (do not commit it).
 
 </details>
 
-## Cấu trúc thư mục
+## Project layout
 
 ```text
-contracts/      Foundry, Solidity 0.8.28 (smart contract)
+contracts/      Foundry, Solidity 0.8.28 (smart contracts)
 oracle/         Cloudflare Worker (TypeScript): Moodle adapter, Demo LMS adapter, Merkle builder
-web/            Next.js App Router: Privy, wagmi/viem, Tailwind, giao diện Việt/Anh
-docs/           Đặc tả và tài liệu kỹ thuật
-assets/         Logo và banner của README
+web/            Next.js App Router: Privy, wagmi/viem, Tailwind, Vietnamese/English UI
+docs/           Specs and technical documentation
+assets/         Logo and banner for the README
 ```
 
-## Đội ngũ
+## Team
 
 - Nguyễn Dương Gia Thuận
 - Nguyễn Kiều Anh Quân
 
-## Giấy phép
+## License
 
-MIT. Xem [LICENSE](LICENSE).
-
----
-
-## English summary
-
-**StudyStake: "Commit to studying, never lose your principal."** Students stake USDC on meeting a Moodle deadline. The stake goes into an ERC-4626 vault that earns yield. Students who complete the work get their principal back, plus a share of the pool's yield and a sponsor bonus. Students who miss the deadline still get 100% of their principal back and forfeit only the bonus.
-
-Flow: stake → vault yield → Moodle/Demo LMS oracle → Merkle settle → dispute window → claim. Principal can always be withdrawn, and `claim`/`expire` are never paused. The oracle cannot touch principal.
-
-Built and tested on local Anvil (Fuji deploy in progress): MockYieldVault (ERC-4626), Merkle settlement, soulbound SBT with on-chain SVG, EIP-2612 permit join, optional Privy login, gas faucet. Roadmap: Aave v3 adapter for mainnet, x402, own L1, zkTLS. Deployed Fuji addresses are TBD. License: MIT.
+MIT. See [LICENSE](LICENSE).

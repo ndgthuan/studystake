@@ -1,12 +1,75 @@
-# StudyStake
+<div align="center">
 
-> **Cam kết học, không mất gốc.** (*Commit to studying, never lose your principal.*)
+<h1>StudyStake</h1>
+
+<img src="assets/logo_animated.svg" width="180" alt="StudyStake logo">
+
+<p><b>Cam kết học, không mất gốc.</b></p>
+<p><i>Commit to studying, never lose your principal.</i></p>
+
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-0e6ba8?style=for-the-badge" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/Avalanche-E84142?style=for-the-badge&logo=avalanche&logoColor=white" alt="Avalanche">
+  <img src="https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity&logoColor=white" alt="Solidity 0.8.28">
+  <img src="https://img.shields.io/badge/Foundry-1F1F1F?style=for-the-badge" alt="Foundry">
+  <img src="https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 15">
+  <img src="https://img.shields.io/badge/Cloudflare%20Workers-F38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white" alt="Cloudflare Workers">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Network-Fuji%20testnet%20%28deploy%20in%20progress%29-555555?style=for-the-badge" alt="Network: Fuji testnet (deploy in progress)">
+  <img src="https://img.shields.io/badge/tests-226%20passing-2EA44F?style=for-the-badge" alt="Tests: 226 passing">
+  <img src="https://img.shields.io/badge/Hackathon-Team1%20Vietnam%20UniHack%202026-E84142?style=for-the-badge" alt="Hackathon: Team1 Vietnam UniHack 2026">
+  <a href="https://github.com/ndgthuan/studystake/stargazers"><img src="https://img.shields.io/github/stars/ndgthuan/studystake?style=for-the-badge" alt="GitHub stars"></a>
+  <a href="https://github.com/ndgthuan/studystake/commits"><img src="https://img.shields.io/github/last-commit/ndgthuan/studystake?style=for-the-badge" alt="Last commit"></a>
+</p>
+
+<p>
+  <a href="docs/SPEC.md"><b>Tài liệu</b></a> &nbsp;·&nbsp;
+  <a href="docs/THREAT_MODEL.md"><b>Threat model</b></a> &nbsp;·&nbsp;
+  <a href="docs/CONTRACTS.md"><b>Kiến trúc contract</b></a> &nbsp;·&nbsp;
+  <a href="docs/ORACLE.md"><b>Oracle</b></a>
+</p>
+
+<img src="assets/banner_flow.svg" width="100%" alt="Luồng: Đặt cọc, Vault sinh lãi, Nộp bài Moodle, Oracle Merkle, Nhận gốc và thưởng">
+
+</div>
 
 StudyStake là dApp trên **Avalanche** (C-Chain; bản demo nhắm Fuji testnet) giúp sinh viên giữ cam kết nộp bài Moodle đúng hạn. Sinh viên đặt cọc USDC, tiền cọc chạy vào vault sinh lãi. Người hoàn thành nhận lại gốc cộng phần lãi của cả nhóm và quỹ thưởng tài trợ. Người trễ hạn vẫn nhận lại **100% gốc**, chỉ mất phần thưởng.
 
 Dự án tham gia **Team1 Vietnam UniHack** (Avalanche).
 
----
+## Ảnh chụp màn hình
+
+### Desktop
+
+![Trang chủ StudyStake, desktop dark](web/screenshots/landing_1280_dark.png)
+
+### Mobile
+
+<div align="center">
+<table align="center" width="100%">
+  <tr>
+    <td width="25%" align="center"><img src="web/screenshots/challenge_detail_375_dark.png" width="150" alt="Chi tiết challenge, mobile dark"><br><b>Chi tiết challenge</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/me_375_dark.png" width="150" alt="Hồ sơ cá nhân, mobile dark"><br><b>Hồ sơ cá nhân</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/link_375_dark.png" width="150" alt="Liên kết Moodle, mobile dark"><br><b>Liên kết Moodle</b></td>
+    <td width="25%" align="center"><img src="web/screenshots/challenges_375_dark.png" width="150" alt="Danh sách challenge, mobile dark"><br><b>Danh sách challenge</b></td>
+  </tr>
+</table>
+</div>
+
+<details>
+<summary>Thêm ảnh (desktop, light mode)</summary>
+
+| Trang xác minh (dark) | Chi tiết challenge (dark) |
+| :---: | :---: |
+| ![Trang xác minh, desktop dark](web/screenshots/verify_1280_dark.png) | ![Chi tiết challenge, desktop dark](web/screenshots/challenge_detail_1280_dark.png) |
+| ![Trang admin, desktop dark](web/screenshots/admin_1280_dark.png) | ![Trang chủ, desktop light](web/screenshots/landing_1280_light.png) |
+
+</details>
+
+Các ảnh khác (light mode, admin, danh sách challenge, liên kết Moodle) nằm trong [`web/screenshots/`](web/screenshots/).
 
 ## Vấn đề
 
@@ -45,26 +108,32 @@ Bằng chứng (JSON, chỉ chứa hash, không có tên): Cloudflare R2, keccak
 ```
 
 Monorepo:
-- `contracts/`: Foundry, Solidity 0.8.28, OpenZeppelin v5
-- `oracle/`: Cloudflare Worker, TypeScript, viem, KV + R2
-- `web/`: Next.js App Router, Privy, wagmi/viem, Tailwind, giao diện Việt/Anh, dark mode nền đen tuyền
-- `docs/`: đặc tả và tài liệu kỹ thuật
+
+| Thư mục | Nội dung |
+|---|---|
+| `contracts/` | Foundry, Solidity 0.8.28, OpenZeppelin v5 |
+| `oracle/` | Cloudflare Worker, TypeScript, viem, KV + R2 |
+| `web/` | Next.js App Router, Privy, wagmi/viem, Tailwind, giao diện Việt/Anh, dark mode nền đen tuyền |
+| `docs/` | Đặc tả và tài liệu kỹ thuật |
 
 ## Tích hợp Avalanche
 
 **Đã làm (code + test trên Anvil local; deploy Fuji đang chuẩn bị):**
-- [x] Vault ERC-4626 mock (`MockYieldVault`) làm nguồn lãi (lãi mô phỏng trên testnet)
-- [x] Settle bằng Merkle root kèm hash bằng chứng
-- [x] Huy hiệu soulbound (ERC-721 + ERC-5192) với SVG on-chain
-- [x] Đặt cọc một giao dịch bằng EIP-2612 `permit`
-- [ ] Privy embedded wallet (đăng nhập Google, tùy chọn): đã tích hợp code, chưa thử với App ID thật
-- [x] Faucet gas AVAX cho người dùng mới (oracle Worker)
+
+| Hạng mục | Trạng thái | Ghi chú |
+|---|:---:|---|
+| Vault ERC-4626 mock (`MockYieldVault`) làm nguồn lãi | ✓ | Lãi mô phỏng trên testnet |
+| Settle bằng Merkle root kèm hash bằng chứng | ✓ | |
+| Huy hiệu soulbound (ERC-721 + ERC-5192) với SVG on-chain | ✓ | |
+| Đặt cọc một giao dịch bằng EIP-2612 `permit` | ✓ | |
+| Privy embedded wallet (đăng nhập Google, tùy chọn) | ✗ | Đã tích hợp code, chưa thử với App ID thật |
+| Faucet gas AVAX cho người dùng mới (oracle Worker) | ✓ | |
 
 **Lộ trình (chưa làm):**
-- [ ] Adapter Aave v3 cho C-Chain mainnet (lãi thật)
-- [ ] x402 "Study Reputation API"
-- [ ] StudyNet L1 riêng cho trường, qua Builder Console, kèm ICM
-- [ ] zkTLS (Reclaim/TLSNotary) thay cho oracle tin cậy
+- Adapter Aave v3 cho C-Chain mainnet (lãi thật)
+- x402 "Study Reputation API"
+- StudyNet L1 riêng cho trường, qua Builder Console, kèm ICM
+- zkTLS (Reclaim/TLSNotary) thay cho oracle tin cậy
 
 ## Bảo mật
 
@@ -86,12 +155,31 @@ Chi tiết các mối đe dọa và cách chặn: [`docs/THREAT_MODEL.md`](docs/
 | Oracle (Worker) | 100 test vitest + E2E trên Anvil | `npm test`, `npm run e2e:anvil` |
 | Web (Next.js) | 34 test vitest + E2E Playwright trên Anvil | `npm test`, `npm run e2e` |
 
+## Địa chỉ deployment
+
+| Mạng | Contract | Địa chỉ |
+|---|---|---|
+| Avalanche Fuji | StudyStakeManager | Fuji: sắp cập nhật (TBD) |
+| Avalanche Fuji | MockYieldVault | Fuji: sắp cập nhật (TBD) |
+| Avalanche Fuji | StudyBadge | Fuji: sắp cập nhật (TBD) |
+
+## Tài liệu
+
+- [`docs/SPEC.md`](docs/SPEC.md): đặc tả và luồng người dùng
+- [`docs/CONTRACTS.md`](docs/CONTRACTS.md): smart contract
+- [`docs/ORACLE.md`](docs/ORACLE.md): oracle Cloudflare Worker
+- [`docs/WEB.md`](docs/WEB.md): ứng dụng web
+- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md): mô hình đe dọa
+
 ## Chạy local
+
+<details>
+<summary><b>Hướng dẫn chạy local</b></summary>
 
 Clone kèm submodule (dependency Foundry nằm trong `contracts/lib/`):
 
 ```bash
-git clone --recurse-submodules https://github.com/<owner>/studystake.git
+git clone --recurse-submodules https://github.com/ndgthuan/studystake.git
 cd studystake
 ```
 
@@ -121,33 +209,17 @@ npm run dev
 ```
 Tạo `web/.env.local` (không commit).
 
-## Địa chỉ deployment
+</details>
 
-| Mạng | Contract | Địa chỉ |
-|---|---|---|
-| Avalanche Fuji | StudyStakeManager | Fuji: sắp cập nhật (TBD) |
-| Avalanche Fuji | MockYieldVault | Fuji: sắp cập nhật (TBD) |
-| Avalanche Fuji | StudyBadge | Fuji: sắp cập nhật (TBD) |
+## Cấu trúc thư mục
 
-## Ảnh chụp màn hình
-
-| Trang chủ (desktop, dark) | Chi tiết challenge (mobile, dark) |
-|---|---|
-| ![Landing 1280 dark](web/screenshots/landing_1280_dark.png) | ![Challenge detail 375 dark](web/screenshots/challenge_detail_375_dark.png) |
-
-| Trang xác minh (desktop, dark) | Hồ sơ cá nhân (mobile, dark) |
-|---|---|
-| ![Verify 1280 dark](web/screenshots/verify_1280_dark.png) | ![Me 375 dark](web/screenshots/me_375_dark.png) |
-
-Các ảnh khác (light mode, admin, danh sách challenge, liên kết Moodle) nằm trong [`web/screenshots/`](web/screenshots/).
-
-## Tài liệu
-
-- [`docs/SPEC.md`](docs/SPEC.md): đặc tả và luồng người dùng
-- [`docs/CONTRACTS.md`](docs/CONTRACTS.md): smart contract
-- [`docs/ORACLE.md`](docs/ORACLE.md): oracle Cloudflare Worker
-- [`docs/WEB.md`](docs/WEB.md): ứng dụng web
-- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md): mô hình đe dọa
+```text
+contracts/      Foundry, Solidity 0.8.28 (smart contract)
+oracle/         Cloudflare Worker (TypeScript): Moodle adapter, Demo LMS adapter, Merkle builder
+web/            Next.js App Router: Privy, wagmi/viem, Tailwind, giao diện Việt/Anh
+docs/           Đặc tả và tài liệu kỹ thuật
+assets/         Logo và banner của README
+```
 
 ## Đội ngũ
 

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="220" viewBox="0 0 1200 220" role="img" aria-label="StudyStake: Đặt cọc, Vault sinh lãi, Nộp bài Moodle, Oracle Merkle, Nhận gốc và thưởng">
+  <style>
+    .title { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; fill: #8A8A8A; }
+    .lbl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 17px; font-weight: 600; fill: #EDEDED; }
+    .sub { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 13px; fill: #8A8A8A; }
+    .num { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; font-weight: 700; fill: #FFFFFF; }
+    .track { stroke: #2A2A2A; stroke-width: 3; stroke-linecap: round; }
+    .flow {
+      stroke: #E84142;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 6 10;
+      animation: march 1.2s linear infinite;
+    }
+    .node { fill: #111111; stroke: #E84142; stroke-width: 2; }
+    .traveller {
+      transform-box: view-box;
+      animation: travel 4s linear infinite;
+      opacity: 0;
+    }
+    @keyframes march { to { stroke-dashoffset: -32; } }
+    @keyframes travel {
+      0% { transform: translateX(0); opacity: 0; }
+      8% { opacity: 1; }
+      92% { opacity: 1; }
+      100% { transform: translateX(880px); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flow, .traveller { animation: none; }
+      .traveller { opacity: 0; }
+    }
+  </style>
+
+  <rect x="0" y="0" width="1200" height="220" rx="16" fill="#000000"/>
+  <text class="title" x="600" y="40" text-anchor="middle">Cách hoạt động</text>
+
+  <line class="track" x1="120" y1="100" x2="1000" y2="100"/>
+  <line class="flow" x1="120" y1="100" x2="1000" y2="100"/>
+
+  <!-- nodes -->
+  <circle class="node" cx="120" cy="100" r="26"/>
+  <circle class="node" cx="340" cy="100" r="26"/>
+  <circle class="node" cx="560" cy="100" r="26"/>
+  <circle class="node" cx="780" cy="100" r="26"/>
+  <circle class="node" cx="1000" cy="100" r="26"/>
+
+  <text class="num" x="120" y="106" text-anchor="middle">1</text>
+  <text class="num" x="340" y="106" text-anchor="middle">2</text>
+  <text class="num" x="560" y="106" text-anchor="middle">3</text>
+  <text class="num" x="780" y="106" text-anchor="middle">4</text>
+  <text class="num" x="1000" y="106" text-anchor="middle">5</text>
+
+  <!-- labels -->
+  <text class="lbl" x="120" y="160" text-anchor="middle">Đặt cọc</text>
+  <text class="sub" x="120" y="184" text-anchor="middle">USDC, permit một giao dịch</text>
+  <text class="lbl" x="340" y="160" text-anchor="middle">Vault sinh lãi</text>
+  <text class="sub" x="340" y="184" text-anchor="middle">ERC-4626 (lãi mô phỏng testnet)</text>
+  <text class="lbl" x="560" y="160" text-anchor="middle">Nộp bài (Moodle)</text>
+  <text class="sub" x="560" y="184" text-anchor="middle">Moodle / Demo LMS oracle</text>
+  <text class="lbl" x="780" y="160" text-anchor="middle">Oracle Merkle</text>
+  <text class="sub" x="780" y="184" text-anchor="middle">settle(root, evidence_hash)</text>
+  <text class="lbl" x="1000" y="160" text-anchor="middle">Nhận gốc + thưởng</text>
+  <text class="sub" x="1000" y="184" text-anchor="middle">claim sau cửa sổ khiếu nại</text>
+
+  <!-- travelling dot -->
+  <g class="traveller">
+    <circle cx="120" cy="100" r="12" fill="#E84142" opacity="0.25"/>
+    <circle cx="120" cy="100" r="6" fill="#E84142"/>
+  </g>
+</svg>

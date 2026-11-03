@@ -1,15 +1,16 @@
 'use client';
 // Join: amount input with min/max and balance, EIP-2612 permit + join_with_permit when the token supports it,
-// otherwise approve + join. tUSDC gets a faucet button.
+// otherwise approve + join. tUSDC gets a faucet button, Circle USDC a link to Circle's faucet.
 import { useState } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useAccount, useWalletClient } from 'wagmi';
-import { getAddress, type Hex } from 'viem';
+import { type Address, type Hex } from 'viem';
 import { use_ui } from '@/hooks/use_ui';
 import { use_tx } from '@/hooks/use_tx';
 import { invalidate_challenge_queries } from '@/hooks/use_challenge';
 import { addresses, abis, public_client } from '@/lib/contracts';
 import { format_usdc, parse_usdc } from '@/lib/usdc';
+import { CIRCLE_FAUCET_URL, is_tusdc, permit_domain } from '@/lib/tokens';
 import { t } from '@/lib/i18n';
 import { TxStatusLine } from './tx_status';
 
@@ -25,23 +26,20 @@ const PERMIT_TYPES = {
 
 interface Props {
   id: bigint;
+  token: Address;
   min_stake: bigint;
   max_stake: bigint;
 }
 
-export function JoinForm({ id, min_stake, max_stake }: Props) {
+export function JoinForm({ id, token, min_stake, max_stake }: Props) {
   const { lang } = use_ui();
   const { address } = useAccount();
   const { data: wallet } = useWalletClient();
   const qc = useQueryClient();
   const [text, set_text] = useState('');
   const [local_error, set_local_error] = useState<string | null>(null);
-  // The demo joins tUSDC only, so the faucet is always offered. A real USDC pool would hide it.
-  const token = addresses.tusdc;
-  const is_tusdc = true;
-
   const balance_q = useQuery({
-    queryKey: ['balance', address ?? null],
+    queryKey: ['balance', token, address ?? null],
     enabled: !!address,
     queryFn: () =>
       public_client.readContract({ address: token, abi: abis.token, functionName: 'balanceOf', args: [address!] }) as Promise<bigint>,
@@ -121,9 +119,13 @@ export function JoinForm({ id, min_stake, max_stake }: Props) {
       {amount !== null && in_range && !enough ? (
         <p className="text-sm" style={{ color: 'var(--accent)' }}>
           {t(lang, 'need_usdc')}
-          {is_tusdc ? (
+          {is_tusdc(token) ? (
             <FaucetButton />
-          ) : null}
+          ) : (
+            <a className="ml-2 underline" href={CIRCLE_FAUCET_URL} target="_blank" rel="noreferrer">
+              {t(lang, 'faucet_circle')}
+            </a>
+          )}
         </p>
       ) : null}
       <button type="button" className="btn" disabled={!in_range || !enough || state.status === 'signing' || state.status === 'pending'} onClick={submit}>
@@ -162,11 +164,6 @@ async function supports_eip2612(token: `0x${string}`): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function permit_domain(token: `0x${string}`) {
-  const name = (await public_client.readContract({ address: token, abi: abis.token, functionName: 'name' })) as string;
-  return { name, version: '1', chainId: public_client.chain!.id, verifyingContract: getAddress(token) };
 }
 
 function split_sig(sig: Hex) {

@@ -9,7 +9,8 @@ import { use_ui } from '@/hooks/use_ui';
 import { use_tx } from '@/hooks/use_tx';
 import { use_roles } from '@/hooks/use_roles';
 import { invalidate_challenge_queries } from '@/hooks/use_challenge';
-import { addresses, abis, public_client } from '@/lib/contracts';
+import { addresses, abis, public_client, to_challenge } from '@/lib/contracts';
+import { stake_tokens } from '@/lib/tokens';
 import { canonical_json } from '@/lib/canonical';
 import { metadata_message } from '@/lib/messages';
 import { oracle, type MetadataDoc } from '@/lib/oracle';
@@ -49,6 +50,9 @@ function CreateChallenge() {
   const [join_min, set_join_min] = useState('5');
   const [min_text, set_min] = useState('1');
   const [max_text, set_max] = useState('500');
+  const tokens = stake_tokens();
+  const [token_key, set_token_key] = useState(tokens[0]!.key);
+  const stake_token = tokens.find((x) => x.key === token_key) ?? tokens[0]!;
   const [msg, set_msg] = useState<string | null>(null);
 
   async function create() {
@@ -82,8 +86,8 @@ function CreateChallenge() {
         abi: abis.manager,
         functionName: 'create_challenge',
         args: [
-          addresses.tusdc,
-          addresses.tusdc_vault,
+          stake_token.token,
+          stake_token.vault,
           min_stake,
           max_stake,
           BigInt(join_deadline),
@@ -104,6 +108,13 @@ function CreateChallenge() {
       <h2 className="font-semibold">Create challenge</h2>
       <input className="input" placeholder="Title" value={title} onChange={(e) => set_title(e.target.value)} />
       <input className="input" placeholder="Site" value={site} onChange={(e) => set_site(e.target.value)} />
+      <select className="input" value={token_key} onChange={(e) => set_token_key(e.target.value as typeof token_key)}>
+        {tokens.map((x) => (
+          <option key={x.key} value={x.key}>
+            {x.label}
+          </option>
+        ))}
+      </select>
       <div className="grid grid-cols-2 gap-2">
         <input className="input num" placeholder="Join window (min)" value={join_min} onChange={(e) => set_join_min(e.target.value)} />
         <input className="input num" placeholder="Due (hours)" value={due_hours} onChange={(e) => set_due_hours(e.target.value)} />
@@ -122,6 +133,7 @@ function CreateChallenge() {
 function SponsorForm() {
   const { lang } = use_ui();
   const qc = useQueryClient();
+  const { address } = useAccount();
   const [id_text, set_id] = useState('');
   const [amount_text, set_amount] = useState('');
   const { state, run } = use_tx(lang, () => invalidate_challenge_queries(qc));
@@ -134,12 +146,27 @@ function SponsorForm() {
         <input className="input num" placeholder="Challenge id" value={id_text} onChange={(e) => set_id(e.target.value)} />
         <input className="input num" placeholder="Amount (USDC)" value={amount_text} onChange={(e) => set_amount(e.target.value)} />
       </div>
-      <p className="text-xs text-[var(--muted)]">tUSDC: approve manager first if needed (use faucet on a challenge page).</p>
+      <p className="text-xs text-[var(--muted)]">Approves the challenge token first when the allowance is too low.</p>
       <button
         type="button"
         className="btn"
-        disabled={id === null || amount === null || amount === 0n}
-        onClick={() => run({ address: addresses.manager, abi: abis.manager, functionName: 'sponsor', args: [id!, amount!] })}
+        disabled={!address || id === null || amount === null || amount === 0n}
+        onClick={async () => {
+          const ch = to_challenge(
+            await public_client.readContract({ address: addresses.manager, abi: abis.manager, functionName: 'get_challenge', args: [id!] }),
+          );
+          const allowance = (await public_client.readContract({
+            address: ch.token,
+            abi: abis.token,
+            functionName: 'allowance',
+            args: [address!, addresses.manager],
+          })) as bigint;
+          if (allowance < amount!) {
+            const approved = await run({ address: ch.token, abi: abis.token, functionName: 'approve', args: [addresses.manager, amount!] });
+            if (approved === null) return;
+          }
+          await run({ address: addresses.manager, abi: abis.manager, functionName: 'sponsor', args: [id!, amount!] });
+        }}
       >
         Sponsor
       </button>

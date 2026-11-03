@@ -92,7 +92,7 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
         </Link>
       </section>
 
-      {phase === 'Joining' ? <JoinForm id={id} min_stake={ch.min_stake} max_stake={ch.max_stake} /> : null}
+      {phase === 'Joining' ? <JoinForm id={id} token={ch.token} min_stake={ch.min_stake} max_stake={ch.max_stake} /> : null}
 
       <ProgressPanel id={id} wallet={address ?? null} accepting_demo={phase === 'Joining' || phase === 'Running'} />
 

@@ -45,7 +45,14 @@ contract Deploy is Script {
         vm.stopBroadcast();
 
         _write_json(
-            oracle, treasury, address(usdc), address(usdc_vault), address(badge), address(manager), circle_vault
+            oracle,
+            treasury,
+            address(usdc),
+            address(usdc_vault),
+            address(badge),
+            address(manager),
+            use_circle ? circle_usdc : address(0),
+            circle_vault
         );
     }
 
@@ -74,6 +81,7 @@ contract Deploy is Script {
         address usdc_vault,
         address badge,
         address manager,
+        address circle_usdc,
         address circle_vault
     ) internal {
         string memory key = "deployment";
@@ -83,6 +91,7 @@ contract Deploy is Script {
         vm.serializeAddress(key, "tusdc_vault", usdc_vault);
         vm.serializeAddress(key, "badge", badge);
         vm.serializeAddress(key, "manager", manager);
+        vm.serializeAddress(key, "circle_usdc", circle_usdc);
         string memory out = vm.serializeAddress(key, "circle_usdc_vault", circle_vault);
 
         vm.createDir("./deployments", true);

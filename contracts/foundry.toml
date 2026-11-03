@@ -22,3 +22,10 @@ runs = 1000
 runs = 256
 depth = 64
 fail_on_revert = false
+
+# `forge script ... --rpc-url fuji --verify` verifies on Snowtrace through Routescan (any key string works).
+[rpc_endpoints]
+fuji = "https://api.avax-test.network/ext/bc/C/rpc"
+
+[etherscan]
+fuji = { key = "verifyContract", chain = 43113, url = "https://api.routescan.io/v2/network/testnet/evm/43113/etherscan" }

@@ -36,7 +36,7 @@ const transports = {
 
 const injected_config = createConfig({
   chains: [active_chain],
-  connectors: [injected_connector()],
+  connectors: [injected_connector({ source: 'avalanche' }), injected_connector()],
   transports,
 });
 

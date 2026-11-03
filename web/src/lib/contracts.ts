@@ -9,6 +9,7 @@ export const addresses = {
   badge: deployments.badge as Address,
   tusdc: deployments.tusdc as Address,
   tusdc_vault: deployments.tusdc_vault as Address,
+  circle_usdc: deployments.circle_usdc as Address,
   circle_usdc_vault: deployments.circle_usdc_vault as Address,
   treasury: deployments.treasury as Address,
   oracle: deployments.oracle as Address,

@@ -9,6 +9,7 @@ import { t } from '@/lib/i18n';
 import { oracle } from '@/lib/oracle';
 import { link_message, unlink_message } from '@/lib/messages';
 import { explain_error } from '@/lib/errors';
+import { CredentialConsent } from './credential_consent';
 
 const DEFAULT_SITE = 'https://courses.ctda.hcmus.edu.vn';
 
@@ -117,6 +118,7 @@ export function LinkForm() {
         </button>
       </div>
       {msg ? <p className="text-sm text-[var(--muted)]">{msg}</p> : null}
+      <CredentialConsent />
     </div>
   );
 }

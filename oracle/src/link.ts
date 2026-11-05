@@ -22,6 +22,10 @@ export function demo_submit_message(wallet: string, challenge_id: number, instan
   return `StudyStake demo submit\nwallet: ${wallet.toLowerCase()}\nchallenge: ${challenge_id}\ninstance: ${instance_id}\nissued_at: ${issued_at}`;
 }
 
+export function consent_message(wallet: string, share: boolean, issued_at: number): string {
+  return `StudyStake credential consent\nwallet: ${wallet.toLowerCase()}\nshare: ${share}\nissued_at: ${issued_at}`;
+}
+
 export type VerifyFailure = 'expired' | 'future' | 'bad_signature' | 'replay';
 
 /** Checks the freshness window only. Pure, takes `now` as input. */

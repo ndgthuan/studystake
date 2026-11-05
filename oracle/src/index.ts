@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { verify_privy_jwt } from './auth.ts';
 import { build_chain, chain_for, STATUS, type ChainPort, type ChallengeRow } from './chain.ts';
 import { canonical_json } from './canonical.ts';
-import { is_allowed_site, load_config, type Config, type Env } from './config.ts';
+import { is_allowed_site, load_config, normalize_site, type Config, type Env } from './config.ts';
 import { decrypt_token, encrypt_token } from './crypto.ts';
 import { run_faucet_grant, verify_turnstile } from './faucet.ts';
 import { check_evidence_upload, committed_proof, is_committed, load_committed_evidence } from './evidence.ts';
@@ -246,14 +246,16 @@ async function handle_link(req: Request, rt: Runtime, now: number): Promise<Resp
   if ((await rt.store.kv.get(nonce)) !== null) throw new ApiError(409, 'replay', 'signature already used');
   await rt.store.kv.put(nonce, '1', { expirationTtl: NONCE_TTL_SECONDS });
 
+  // The wallet signed the site as typed. Everything stored or hashed uses the canonical spelling.
+  const site = normalize_site(body.site);
   const wallet = body.wallet.toLowerCase();
   let userid: number | null = null;
   let subject_hash: string;
   let token_enc: string | null = null;
   if (body.lms === 'moodle') {
     const token = body.moodle_token!;
-    userid = await fetch_userid(body.site, token);
-    subject_hash = subject_hash_of(body.site, userid);
+    userid = await fetch_userid(site, token);
+    subject_hash = subject_hash_of(site, userid);
     token_enc = await encrypt_token(token, rt.cfg.token_enc_key);
   } else {
     subject_hash = keccak256(toBytes(`demo|${wallet}`));
@@ -274,9 +276,9 @@ async function handle_link(req: Request, rt: Runtime, now: number): Promise<Resp
   }
 
   await rt.store.kv.put(subject_k, wallet);
-  const record: LinkRecord = { wallet, lms: body.lms, site: body.site, userid, subject_hash, token_enc };
+  const record: LinkRecord = { wallet, lms: body.lms, site, userid, subject_hash, token_enc };
   await put_json(rt.store.kv, `link:${wallet}`, record);
-  return json_response({ lms: body.lms, site: body.site, linked: true }, 200);
+  return json_response({ lms: body.lms, site, linked: true }, 200);
 }
 
 async function handle_unlink(req: Request, rt: Runtime, now: number): Promise<Response> {

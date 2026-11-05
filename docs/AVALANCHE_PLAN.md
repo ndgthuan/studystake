@@ -1,135 +1,137 @@
-# StudyStake: Kế hoạch tăng điểm Avalanche Integration
+# StudyStake: Plan to raise the Avalanche Integration score
 
-> Mục tiêu: tối đa 50 điểm vòng loại (Technical 25 + Avalanche Integration 25).
-> Hôm nay 3/11. Hạn nộp: **23:59 21/11/2026**. Còn 18 ngày.
+> Goal: the maximum 50 points of the qualifying round (Technical 25 + Avalanche Integration 25).
+> Written on 3/11. Submission deadline: **23:59 21/11/2026**.
 
-## Vấn đề hiện tại
+## Current problem
 
-Code hiện tại là EVM chung: deploy lên Ethereum hay Polygon cũng chạy y hệt. Những thứ đặc trưng của Avalanche (x402, L1 riêng, ICM) đều nằm trong "lộ trình". Ngoài ra dự án **chưa deploy lên Fuji** (`web/src/generated/deployments.json` vẫn là địa chỉ Anvil).
+The current code is generic EVM: deployed to Ethereum or Polygon it would run exactly the same. Everything specific to Avalanche (x402, a dedicated L1, ICM) is still on the "roadmap". The project is also **not deployed on Fuji yet** (`web/src/generated/deployments.json` still holds Anvil addresses).
 
-Giám khảo chấm 25 điểm này theo câu hỏi: *"Phần nào của sản phẩm chỉ có ý nghĩa khi chạy trên Avalanche, và nó có chạy thật trên chain không?"*
+Judges score these 25 points by asking: *"Which part of the product only makes sense on Avalanche, and does it really run on-chain?"*
 
-## Tổng quan 3 tầng
+## Three tiers at a glance
 
-| Tầng | Nội dung | Mức ưu tiên | Hạn |
+| Tier | Content | Priority | Due |
 |---|---|---|---|
-| **P0** | Chạy thật trên Fuji: deploy, verify, Circle USDC, Privy, Core wallet | Bắt buộc | **9/11** |
-| **P1** | x402 "Study Credential API", doanh thu x402 nạp lại quỹ thưởng | Nên làm | **15/11** |
-| **P2** | StudyNet L1 + ICM: hồ sơ học tập nằm trên L1 của trường | Stretch | **18/11** |
-| | Đóng băng code, quay video, làm slide, nộp | | **19–21/11** |
+| **P0** | Really running on Fuji: deploy, verify, Circle USDC, Privy, Core wallet | Mandatory | **9/11** |
+| **P1** | x402 "Study Credential API", x402 revenue refills the reward pool | Should do | **15/11** |
+| **P2** | StudyNet L1 + ICM: study records live on the school's L1 | Stretch | **18/11** |
+| | Code freeze, video, slides, submission | | **19–21/11** |
 
-Nguyên tắc: **P0 chưa xong thì không đụng tới P1. P1 chưa chạy trên Fuji thì không đụng tới P2.** Một tính năng chạy thật trên Fuji có giá trị hơn ba tính năng chỉ có trên Anvil.
+Principle: **do not touch P1 until P0 is done. Do not touch P2 until P1 runs on Fuji.** One feature running for real on Fuji is worth more than three that only exist on Anvil.
 
 ---
 
-## P0: Chạy thật trên Fuji (3/11 → 9/11)
+## P0: Really running on Fuji (3/11 → 9/11)
 
-### Việc cần làm
-1. **Chuyển token chính sang Circle USDC Fuji** (`0x5425890298aed601595a70AB815c96711a31Bc65`).
-   - Lý do: đây là USDC native của Circle, đúng với USDC trên C-Chain mainnet. Nó có cả EIP-2612 (permit) lẫn **EIP-3009** (`transferWithAuthorization`), và x402 ở P1 **bắt buộc** cần EIP-3009. `TestUSDC` hiện tại chỉ có permit.
-   - Deploy với `USE_CIRCLE_USDC=true`. Giữ tUSDC làm phương án dự phòng (Circle faucet có captcha, người dùng phải tự xin).
-   - Mặc định trên web (`/challenges`, `/admin`) dùng challenge Circle USDC.
-2. **Deploy + verify cả 4 contract trên Snowtrace** (Manager, Badge, 2 vault). Dán link Snowtrace vào README.
-   - Kiểm tra `evm_version = "cancun"` trong `foundry.toml` deploy ổn trên Fuji (chạy thử `forge script` với `--rpc-url` Fuji trước khi broadcast).
-3. **Deploy oracle Worker** với địa chỉ thật (`MANAGER_ADDRESS`, `DEPLOY_BLOCK`, KV id, R2 bucket, secrets). Chỉnh `ALLOWED_ORIGINS` theo domain web.
-4. **Deploy web** (Vercel hoặc Cloudflare Pages), chạy `sync_deployments` để lấy địa chỉ Fuji.
-5. **Privy với App ID thật**: test đăng nhập Google → ví embedded → faucet AVAX → join → claim, chạy hết trên Fuji.
-6. **Hỗ trợ Core wallet** (ví của Avalanche) ngoài MetaMask, theo starter "Connect a wallet" của BTC.
-7. **Chạy một challenge thật trên Fuji** bằng Demo LMS, từ đầu đến cuối (join → settle → dispute window → finalize → claim). Lưu lại tx hash của từng bước để đưa vào README và video.
+### Tasks
+1. **Switch the main token to Circle's Fuji USDC** (`0x5425890298aed601595a70AB815c96711a31Bc65`).
+   - Why: this is Circle's native USDC, the same as USDC on C-Chain mainnet. It has both EIP-2612 (permit) and **EIP-3009** (`transferWithAuthorization`), and x402 in P1 **requires** EIP-3009. The current `TestUSDC` only has permit.
+   - Deploy with `USE_CIRCLE_USDC=true`. Keep tUSDC as a backup (Circle's faucet has a captcha, so users must request funds themselves).
+   - Web defaults (`/challenges`, `/admin`) use Circle USDC challenges.
+2. **Deploy + verify all 4 contracts on Snowtrace** (Manager, Badge, 2 vaults). Paste the Snowtrace links into the README.
+   - Check that `evm_version = "cancun"` in `foundry.toml` deploys fine on Fuji (dry-run `forge script` with the Fuji `--rpc-url` before broadcasting).
+3. **Deploy the oracle Worker** with real addresses (`MANAGER_ADDRESS`, `DEPLOY_BLOCK`, KV id, R2 bucket, secrets). Set `ALLOWED_ORIGINS` to the web domain.
+4. **Deploy the web** (Vercel or Cloudflare Pages), run `sync_deployments` to get the Fuji addresses.
+5. **Privy with a real App ID**: test Google login → embedded wallet → AVAX faucet → join → claim, all on Fuji.
+6. **Core wallet support** (Avalanche's wallet) alongside MetaMask, following the organizers' "Connect a wallet" starter.
+7. **Run one real challenge on Fuji** with the Demo LMS, end to end (join → settle → dispute window → finalize → claim). Keep the tx hash of each step for the README and the video.
 
-### Xong khi
-- [ ] README có bảng địa chỉ Fuji kèm link Snowtrace đã verify
-- [ ] Một người ngoài đội mở web, đăng nhập Google, join và claim được trên Fuji mà không cần hướng dẫn
-- [ ] Playwright E2E chạy được trên Fuji (hoặc ít nhất một bản ghi màn hình đầy đủ)
+### Done when
+- [ ] The README has a table of Fuji addresses with verified Snowtrace links
+- [ ] Someone outside the team can open the web, log in with Google, join and claim on Fuji without guidance
+- [ ] Playwright E2E runs on Fuji (or at least a full screen recording)
 
 ---
 
 ## P1: x402 "Study Credential API" (9/11 → 15/11)
 
-### Ý tưởng
-Badge và streak đã công khai on-chain, nên **không bán dữ liệu đó**. Giám khảo sẽ hỏi: "Ai cũng đọc được on-chain miễn phí, sao phải trả tiền?"
+> The source of truth for this API is [`X402.md`](X402.md). This section explains the idea.
 
-Thứ chỉ oracle mới biết là: *ví này đã được liên kết với một tài khoản Moodle thật của trường X, và đã hoàn thành N challenge đúng hạn*. Oracle có thể **ký chứng nhận** (EIP-712) cho thông tin đó. Đây chính là thứ đáng trả tiền.
+### Idea
+Badges and streaks are already public on-chain, so we **do not sell that data**. Judges would ask: "Anyone can read it on-chain for free, so why pay?"
 
-- **Người mua:** app học bổng, nhà tuyển dụng thực tập, CLB, hoặc **AI agent** cần xác minh "sinh viên chăm chỉ thật" mà không phải tin vào ảnh chụp màn hình.
-- **Giá:** 0.001–0.01 USDC mỗi lần gọi, trả qua x402, **người mua không cần AVAX** (facilitator trả gas).
-- **Vòng lặp kinh tế (điểm sáng tạo):** doanh thu x402 chảy về treasury, rồi treasury gọi `sponsor()` để **nạp lại quỹ thưởng** cho challenge kỳ sau. Nhờ đó giải được điểm yếu "lãi testnet quá ít, không đủ tạo động lực" với một nguồn thưởng có thật và lặp lại được.
+What only the oracle knows is: *this wallet is linked to a real Moodle account at school X, and has completed N challenges on time*. The oracle can **sign an attestation** (EIP-712) of that. This is what is worth paying for.
 
-### Thiết kế
+- **Buyers:** scholarship apps, internship recruiters, clubs, or **AI agents** that need to verify "a genuinely diligent student" without trusting a screenshot.
+- **Price:** 0.001–0.01 USDC per call, paid through x402, and **the buyer needs no AVAX** (the facilitator pays gas).
+- **Economic loop (the creative point):** x402 revenue flows to the treasury, then the treasury calls `sponsor()` to **refill the reward pool** of next term's challenges. This addresses the weak point "testnet yield is too small to motivate anyone" with a real, repeatable source of rewards.
+
+### Design
 ```
 GET /x402/credential/:wallet          (oracle Worker)
   → 402 Payment Required: 0.005 USDC, Avalanche Fuji, pay_to = TREASURY
-  → client ký EIP-3009 authorization, gửi lại header PAYMENT-SIGNATURE
-  → Worker gọi facilitator /verify → đọc badge on-chain + link KV
-  → ký EIP-712 Credential → facilitator /settle → trả 200 + tx hash
+  → client signs an EIP-3009 authorization, resends with a PAYMENT-SIGNATURE header
+  → Worker calls facilitator /verify → reads the badge on-chain + KV link
+  → signs the EIP-712 Credential → facilitator /settle → returns 200 + tx hash
 ```
-`Credential` (EIP-712, ký bằng khóa oracle):
+`Credential` (EIP-712, signed with the oracle key):
 ```
 { wallet, subject_hash, site_hash, streak, best_streak, total_completed, total_failed, issued_at, expires_at }
 ```
-- Không chứa tên, MSSV hay userid thô (giống quy tắc của evidence).
-- Chỉ trả credential khi chủ ví đã **đồng ý công khai** (thêm cờ `share_credential` khi link, ký bằng ví). Người dùng kiểm soát dữ liệu của mình, đúng tinh thần threat model.
-- Thêm trang `/credential/verify` trên web: dán credential vào, web khôi phục người ký (`recoverTypedData`), so với địa chỉ oracle on-chain (`ORACLE_ROLE`), rồi đọc badge để đối chiếu.
+- Contains no names, student IDs or raw userids (same rule as evidence).
+- Only returns a credential when the wallet owner has **agreed to share** (a `share_credential` flag set at link time, signed by the wallet). Users control their data, in the spirit of the threat model.
+- Add a `/credential/verify` web page: paste a credential, the web recovers the signer (`recoverTypedData`), compares it with the on-chain oracle address (`ORACLE_ROLE`), then reads the badge to cross-check.
 
-### Ghi chú kỹ thuật
-- Lấy code từ starter của BTC: <https://team1vn.xyz/demos.html#x402-pay-per-request> (Express, `@x402` pin ở bản 2.28).
-- Oracle là **Cloudflare Worker, không phải Express**, nên không dùng được middleware Express. Có 2 cách:
-  1. Dùng gói `@x402` phần core/fetch nếu chạy được trên Workers (cần kiểm tra trước, mất khoảng nửa ngày).
-  2. Tự viết luồng 402 (khoảng 150 dòng): trả header `PAYMENT-REQUIRED`, nhận `PAYMENT-SIGNATURE`, gọi HTTP `/verify` và `/settle` của facilitator. Starter có sẵn `src/facilitator.mjs` để đọc định dạng.
-- Starter ghi rõ: thư viện x402 **không biết USDC trên Fuji**, phải khai báo đầy đủ địa chỉ token, `name` và `version` (xem `src/networks.mjs` của starter).
-- **Tự chạy facilitator riêng cho Demo Day** (starter có sẵn), để không phụ thuộc facilitator công cộng.
-- Viết thêm `scripts/agent_buyer.mjs`: một "agent học bổng" tự trả tiền và lấy credential của 3 ví. Đây là cảnh demo cho video.
-- Test: vitest cho luồng 402 (thiếu header → 402, chữ ký sai → 402, đúng → 200 + credential hợp lệ), kèm một lần trả tiền thật trên Fuji có tx hash.
+### Technical notes
+- Take code from the organizers' starter: <https://team1vn.xyz/demos.html#x402-pay-per-request> (Express, `@x402` pinned at 2.28).
+- The oracle is a **Cloudflare Worker, not Express**, so the Express middleware cannot be used. Two options:
+  1. Use the `@x402` core/fetch packages if they run on Workers (needs checking, about half a day).
+  2. Write the 402 flow by hand (about 150 lines): return the `PAYMENT-REQUIRED` header, take `PAYMENT-SIGNATURE`, call the facilitator's HTTP `/verify` and `/settle`. The starter's `src/facilitator.mjs` shows the format.
+- The starter says plainly: the x402 library **does not know USDC on Fuji**, so the token address, `name` and `version` must be stated in full (see the starter's `src/networks.mjs`).
+- **Run our own facilitator for Demo Day** (included in the starter), so we do not depend on public facilitators.
+- Add `scripts/agent_buyer.mjs`: a "scholarship agent" that pays by itself and gets the credentials of 3 wallets. This is the demo scene for the video.
+- Tests: vitest for the 402 flow (missing header → 402, bad signature → 402, valid → 200 + a valid credential), plus one real payment on Fuji with a tx hash.
 
-### Xong khi
-- [ ] Gọi API trên Fuji: tiền USDC chuyển thật vào treasury, có tx Snowtrace
-- [ ] Credential verify được trên `/credential/verify`
-- [ ] Có script hoặc nút admin cho treasury `sponsor()` challenge mới bằng doanh thu x402
+### Done when
+- [ ] Calling the API on Fuji: USDC really moves to the treasury, with a Snowtrace tx
+- [ ] The credential verifies on `/credential/verify`
+- [ ] There is a script or admin button for the treasury to `sponsor()` a new challenge with x402 revenue
 
 ---
 
 ## P2 (stretch): StudyNet L1 + ICM (15/11 → 18/11)
 
-### Ý tưởng
-Mỗi trường chạy một **Avalanche L1 riêng** ("StudyNet"). Hồ sơ học tập (badge, streak) nằm trên chain do trường kiểm soát, sinh viên không phải trả gas. Tiền (USDC, vault) vẫn ở **C-Chain**, nơi có thanh khoản thật. Hai chain nói chuyện với nhau qua **ICM (Teleporter)**.
+### Idea
+Each school runs its own **Avalanche L1** ("StudyNet"). Study records (badges, streaks) live on a chain the school controls, and students pay no gas. Money (USDC, vault) stays on **C-Chain**, where the real liquidity is. The two chains talk through **ICM (Teleporter)**.
 
 ```
 C-Chain Fuji: StudyStakeManager.claim()
-   → StudyBadge.record_result()   (giữ như cũ)
+   → StudyBadge.record_result()   (unchanged)
    → BadgeICMSender.send(account, stats) ──ICM──▶ StudyNet L1: BadgeRegistry.receive()
 ```
-- Làm theo chiều C-Chain → L1, thêm **một contract gửi** riêng, **không sửa `StudyStakeManager`**. Nhờ vậy 92 test hiện tại vẫn xanh và không mở thêm rủi ro cho tiền gốc.
-- Tạo L1 bằng Builder Console: <https://build.avax.network/console/create-l1?ref=HVHXK&utm_source=team1>
+- Goes in the C-Chain → L1 direction, adding a separate **sender contract**, **without changing `StudyStakeManager`**. That keeps the existing 92 tests green and adds no risk to principal.
+- Create the L1 with Builder Console: <https://build.avax.network/console/create-l1?ref=HVHXK&utm_source=team1>
 
-### Rủi ro (đọc kỹ trước khi bắt đầu)
-- **Cần kiểm tra:** L1 testnet tạo qua Builder Console có tự hết hạn hay không, và có sẵn ICM relayer không. Nếu L1 tắt trước khi giám khảo chấm (21–23/11) thì phần này sẽ vỡ. Khi đó chỉ trình bày trong video (có tx hash), **không** để nó nằm trong luồng chính của web.
-- Nếu đến 15/11 mà P1 chưa xong thì **bỏ P2**. Chỉ trình bày L1 + ICM trong slide như lộ trình, kèm sơ đồ kiến trúc.
+### Risks (read before starting)
+- **To check:** whether testnet L1s created through Builder Console expire, and whether an ICM relayer is included. If the L1 goes down before judging (21–23/11), this part breaks. In that case present it only in the video (with tx hashes), and do **not** put it in the web's main flow.
+- If P1 is not done by 15/11, **drop P2**. Present L1 + ICM in the slides only, as roadmap, with an architecture diagram.
 
-### Xong khi
-- [ ] Có ít nhất một message ICM thành công C-Chain → L1, kèm tx hash cả hai phía
-- [ ] Video có cảnh claim trên C-Chain rồi badge xuất hiện trên L1
+### Done when
+- [ ] At least one successful ICM message C-Chain → L1, with tx hashes on both sides
+- [ ] The video has a scene of claiming on C-Chain and the badge appearing on the L1
 
 ---
 
-## Những việc nhỏ nhưng đáng làm (làm xen kẽ)
-- README và slide có mục **"Vì sao Avalanche"**, mỗi ý đi kèm bằng chứng:
-  - Finality dưới 1 giây → claim xong là thấy tiền ngay (quay màn hình)
-  - Phí thấp → cọc 1 USDC vẫn hợp lý (ghi phí gas thực tế của `join_with_permit` trên Fuji)
-  - Circle USDC native + EIP-3009 → x402 không cần gas
-  - L1 cho từng trường → dữ liệu học tập thuộc về trường và sinh viên
-- Bảng "Tx thật trên Fuji" trong README: join, settle, finalize, claim, x402 payment, mỗi dòng một link Snowtrace.
-- Cập nhật bảng "Tích hợp Avalanche" trong README cho đúng thực tế. **Không ghi ✓ cho thứ chưa chạy trên Fuji**, giám khảo sẽ bấm thử.
-- Làm Builder Pass (5 nhiệm vụ) cho cả đội.
+## Small but worthwhile tasks (fit in between)
+- The README and slides have a **"Why Avalanche"** section, each point with evidence:
+  - Sub-second finality → money is visible right after claiming (screen recording)
+  - Low fees → a 1 USDC stake still makes sense (record the real gas cost of `join_with_permit` on Fuji)
+  - Native Circle USDC + EIP-3009 → gasless x402
+  - An L1 per school → study data belongs to the school and students
+- A "Real txs on Fuji" table in the README: join, settle, finalize, claim, x402 payment, one Snowtrace link per row.
+- Keep the README's "Avalanche integration" table accurate. **Do not mark ✓ for anything not running on Fuji**, judges will try it.
+- Complete Builder Pass (5 quests) for the whole team.
 
-## Phân công gợi ý (đội ≤ 3 người)
-| Người | P0 | P1 | P2 |
+## Suggested assignment (team ≤ 3 people)
+| Person | P0 | P1 | P2 |
 |---|---|---|---|
-| A (Solidity) | Deploy + verify Fuji, Circle USDC | EIP-712 Credential, ký và verify | ICM sender/receiver |
-| B (Backend) | Deploy Worker, R2/KV, secrets | Luồng x402 trong Worker, facilitator riêng, agent buyer | Relayer/L1 setup |
-| C (Frontend/Pitch) | Privy thật, Core wallet, test mobile | `/credential/verify`, bảng doanh thu treasury | Slide, video, kịch bản Demo Day |
+| A (Solidity) | Deploy + verify on Fuji, Circle USDC | EIP-712 Credential, signing and verifying | ICM sender/receiver |
+| B (Backend) | Deploy the Worker, R2/KV, secrets | x402 flow in the Worker, own facilitator, agent buyer | Relayer/L1 setup |
+| C (Frontend/Pitch) | Real Privy, Core wallet, mobile testing | `/credential/verify`, treasury revenue panel | Slides, video, Demo Day script |
 
-## Câu hỏi giám khảo cần chuẩn bị sẵn
-1. *"Sao không làm trên Ethereum/Base?"* → trả lời bằng 4 ý ở mục "Vì sao Avalanche", kèm số liệu thật.
-2. *"Dữ liệu badge công khai, sao phải trả x402?"* → thứ được bán là chứng nhận do oracle ký (đã xác minh tài khoản Moodle thật), có sự đồng ý của sinh viên.
-3. *"Lãi testnet là giả?"* → đúng, và đã nói rõ. Trên mainnet dùng adapter Aave v3; còn nguồn thưởng chính là sponsor cộng doanh thu x402.
-4. *"Oracle gian lận thì sao?"* → oracle không chạm được vào tiền gốc, thưởng bị giới hạn, có cửa sổ khiếu nại, bằng chứng công khai ở `/verify`; lộ trình zkTLS.
+## Judge questions to prepare for
+1. *"Why not build on Ethereum/Base?"* → answer with the 4 points of "Why Avalanche", with real numbers.
+2. *"Badge data is public, why pay through x402?"* → what is sold is an attestation signed by the oracle (a verified real Moodle account), with the student's consent.
+3. *"Testnet yield is fake?"* → yes, and we say so. On mainnet we use the Aave v3 adapter; the main reward source is sponsors plus x402 revenue.
+4. *"What if the oracle cheats?"* → the oracle cannot touch principal, rewards are capped, there is a dispute window and public evidence on `/verify`; the roadmap is zkTLS.

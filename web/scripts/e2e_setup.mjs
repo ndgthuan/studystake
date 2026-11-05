@@ -52,7 +52,8 @@ const args = new Set(process.argv.slice(2));
 const FORK = args.has('--fork');
 const RUN_TESTS = args.has('--run');
 const CHAIN_ID = FORK ? 43113 : 31337;
-const SPEC = FORK ? 'fork_circle' : 'demo_flow';
+// Anvil runs every spec, and the fork spec skips itself there. The other specs read 31337.json, so the fork stops at its own.
+const SPEC_FILTER = FORK ? ['fork_circle'] : [];
 /** Where this stack's addresses end up. The fork copy is git-ignored and is not the real Fuji file. */
 const deployments_path = join(contracts_root, 'deployments', FORK ? 'fork-43113.json' : '31337.json');
 
@@ -325,7 +326,7 @@ async function start_web(deploy_block) {
 function run_playwright() {
   return new Promise((done) => {
     const cli = join(web_root, 'node_modules', '@playwright', 'test', 'cli.js');
-    const child = spawn(process.execPath, [cli, 'test', SPEC], {
+    const child = spawn(process.execPath, [cli, 'test', ...SPEC_FILTER], {
       cwd: web_root,
       stdio: 'inherit',
       env: { ...process.env, E2E_MODE: FORK ? 'fork' : 'anvil', E2E_DEPLOYMENTS: deployments_path },

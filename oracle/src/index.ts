@@ -6,7 +6,7 @@ import { verify_privy_jwt } from './auth.ts';
 import { build_chain, chain_for, STATUS, type ChainPort, type ChallengeRow } from './chain.ts';
 import { canonical_json } from './canonical.ts';
 import { is_allowed_site, load_config, type Config, type Env } from './config.ts';
-import { consent_key, read_share_state, write_consent } from './credential.ts';
+import { consent_key, issue_credential, read_share_state, write_consent } from './credential.ts';
 import { decrypt_token, encrypt_token } from './crypto.ts';
 import { run_faucet_grant, verify_turnstile } from './faucet.ts';
 import { check_evidence_upload, committed_proof, is_committed, load_committed_evidence } from './evidence.ts';
@@ -36,6 +36,17 @@ import {
 import { check_rate_limit } from './ratelimit.ts';
 import { participants_of, run_settle_job, type SettleDeps } from './settle.ts';
 import { get_link, get_text, put_evidence, put_json, subject_key, type LinkRecord, type R2Like, type Store } from './store.ts';
+import {
+  build_requirements,
+  decode_payment_header,
+  encode_header,
+  MAX_PAYMENT_HEADER_BYTES,
+  payment_required_response,
+  read_stats,
+  record_settlement,
+  settle_payment,
+  verify_payment,
+} from './x402.ts';
 
 interface Runtime {
   cfg: Config;
@@ -202,6 +213,12 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
     const { share } = await read_share_state(rt.store.kv, parts[2]!);
     return json_response({ wallet: parts[2]!.toLowerCase(), share }, 200);
   }
+
+  if (req.method === 'GET' && parts[0] === 'x402' && parts[1] === 'credential' && parts.length === 3) {
+    return handle_paid_credential(req, rt, parts[2]!, now);
+  }
+
+  if (req.method === 'GET' && path === '/x402/stats') return handle_x402_stats(rt);
 
   if (req.method === 'POST' && path === '/faucet') return handle_faucet(req, rt, now);
 
@@ -450,6 +467,64 @@ async function handle_proof(rt: Runtime, id: number, account: string): Promise<R
   if (lookup.kind === 'no_evidence') throw new ApiError(404, 'not_found', 'evidence not found');
   if (lookup.kind === 'no_account') throw new ApiError(404, 'not_found', 'account not in evidence');
   return json_response(lookup.proof, 200);
+}
+
+/** A chain read failed. Used only before settling, so the buyer has not been charged. */
+async function read_chain<T>(read: Promise<T>): Promise<T> {
+  try {
+    return await read;
+  } catch {
+    throw new ApiError(502, 'upstream_error', 'could not read the chain; you were not charged');
+  }
+}
+
+/**
+ * The paid route, docs/X402.md sections 2 to 4. Free checks come first, so a buyer never pays for a refusal. The
+ * credential is built after verify and leaves only after settle, so a failed transfer gets nothing.
+ */
+async function handle_paid_credential(req: Request, rt: Runtime, wallet: string, now: number): Promise<Response> {
+  const x402 = rt.cfg.x402;
+  if (x402 === null) throw new ApiError(503, 'x402_disabled', 'paid credentials are not configured');
+  const limited = await check_rate_limit(rt.store.kv, 'x402_credential', client_ip(req), 60, 60, now);
+  if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
+  if (!wallet_schema.safeParse(wallet).success) throw new ApiError(400, 'invalid_wallet', 'wallet must be 0x + 40 hex');
+
+  const { link, share } = await read_share_state(rt.store.kv, wallet);
+  if (link === null) throw new ApiError(404, 'not_linked', 'wallet has no LMS link');
+  if (!share) throw new ApiError(403, 'credential_not_shared', 'the student has not agreed to share this credential');
+
+  const header = req.headers.get('payment-signature');
+  if (header !== null && header.length > MAX_PAYMENT_HEADER_BYTES) {
+    throw new ApiError(413, 'header_too_large', `PAYMENT-SIGNATURE exceeds ${MAX_PAYMENT_HEADER_BYTES} bytes`);
+  }
+  const requirements = build_requirements(x402, rt.cfg.chain_id, await read_chain(rt.port.treasury()));
+  if (header === null) return payment_required_response(req.url, requirements, 'payment required');
+  const payload = decode_payment_header(header);
+  if (payload === null) return payment_required_response(req.url, requirements, 'invalid payment header');
+
+  const verified = await verify_payment(x402, payload, requirements);
+  if (!verified.isValid) return payment_required_response(req.url, requirements, verified.invalidReason ?? 'payment refused');
+
+  const signed = await issue_credential({
+    link,
+    stats: await read_chain(rt.port.badge_stats(wallet)),
+    now_seconds: now,
+    chain_id: rt.cfg.chain_id,
+    manager: rt.cfg.manager,
+    oracle_private_key: rt.cfg.oracle_private_key,
+  });
+
+  const settled = await settle_payment(x402, payload, requirements);
+  if (!settled.success) return payment_required_response(req.url, requirements, settled.errorReason ?? 'settlement failed');
+  await record_settlement(rt.store.kv, requirements.amount);
+  return json_response({ ...signed, transaction: settled.transaction }, 200, { 'payment-response': encode_header(settled) });
+}
+
+async function handle_x402_stats(rt: Runtime): Promise<Response> {
+  const x402 = rt.cfg.x402;
+  if (x402 === null) throw new ApiError(503, 'x402_disabled', 'paid credentials are not configured');
+  const pay_to = await read_chain(rt.port.treasury());
+  return json_response({ pay_to, asset: x402.asset, price: x402.price, ...(await read_stats(rt.store.kv)) }, 200);
 }
 
 async function handle_faucet(req: Request, rt: Runtime, now: number): Promise<Response> {

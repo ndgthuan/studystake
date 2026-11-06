@@ -68,6 +68,8 @@ export interface ChainPort {
   expire(id: number): Promise<string>;
   collect_treasury(id: number): Promise<string>;
   has_creator_role(address: string): Promise<boolean>;
+  /** Where x402 revenue goes. Read from the manager so there is one source of truth. */
+  treasury(): Promise<`0x${string}`>;
   /** Study record from StudyBadge. All zero when the account has no badge. */
   badge_stats(account: string): Promise<BadgeStats>;
   creator_role(): Promise<`0x${string}`>;
@@ -172,6 +174,9 @@ export function build_chain(chain: Chain, cfg: Config, transport?: ReturnType<ty
         functionName: 'hasRole',
         args: [role, address as `0x${string}`],
       });
+    },
+    async treasury() {
+      return public_client.readContract({ address: manager, abi: manager_abi, functionName: 'treasury' });
     },
     async badge_stats(account) {
       const badge = await public_client.readContract({ address: manager, abi: manager_abi, functionName: 'badge' });

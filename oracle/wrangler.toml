@@ -29,3 +29,8 @@ MOODLE_SITES = "https://courses.ctda.hcmus.edu.vn"
 # 0.05 AVAX
 FAUCET_AMOUNT_WEI = "50000000000000000"
 FAUCET_DAILY_CAP = "20"
+# Paid credential (docs/X402.md). An empty facilitator URL turns the route off. The asset needs EIP-3009, so not tUSDC.
+X402_FACILITATOR_URL = "https://facilitator.ultravioletadao.xyz"
+X402_ASSET = "0x5425890298aed601595a70AB815c96711a31Bc65"
+# 0.005 USDC in base units
+X402_PRICE = "5000"

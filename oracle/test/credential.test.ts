@@ -237,11 +237,12 @@ describe('consent routes', () => {
     expect(await (await get_share(kv)).json()).toEqual({ wallet, share: false });
   });
 
-  it('has no free route that returns a credential', async () => {
+  it('gives no credential when x402 is not configured, even with consent', async () => {
     const kv = make_memory_kv();
     await kv.put(link_key(wallet), JSON.stringify(user_link));
     expect((await post_consent(kv, true)).status).toBe(200);
     const res = await worker.fetch(new Request(`https://oracle.test/x402/credential/${wallet}`), make_env(kv));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(503);
+    expect(await res.text()).not.toContain('signature');
   });
 });

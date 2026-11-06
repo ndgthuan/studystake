@@ -1,62 +1,62 @@
-# Deploy StudyStake lên Avalanche Fuji
+# Deploying StudyStake to Avalanche Fuji
 
-Hướng dẫn từng bước cho P0 (xem `AVALANCHE_PLAN.md`). Script deploy đã được chạy thử trên một bản fork của Fuji với Circle USDC thật (deploy thành công, join bằng permit thành công khoảng 291k gas). Các bước dưới đây là phần cần **khóa thật và tài khoản thật** của đội.
+Step-by-step guide for P0 (see `AVALANCHE_PLAN.md`). The deploy script has been dry-run on a Fuji fork with real Circle USDC (deploy succeeded, permit join succeeded at about 291k gas). The steps below are the part that needs the team's **real keys and accounts**.
 
-> **Quy tắc an toàn:** dùng ví **mới, chỉ dành cho testnet**. Không dán private key vào chat, Discord hay commit. Khóa chỉ nằm trong `contracts/.env` (đã gitignore) và trong `wrangler secret`.
+> **Safety rule:** use **new, testnet-only** wallets. Do not paste private keys into chat, Discord or commits. Keys live only in `contracts/.env` (gitignored) and in `wrangler secret`.
 
-## 0. Chuẩn bị (một lần)
+## 0. Prerequisites (once)
 
-- Foundry: `curl -L https://foundry.paradigm.xyz | bash` rồi `foundryup`. Trên Windows Git Bash, thêm `export PATH="$PATH:$HOME/.foundry/bin"` vào `~/.bashrc`.
-- Submodule: `git submodule update --init --recursive`
-- Kiểm tra: `cd contracts && forge test` (92 test pass)
+- Foundry: `curl -L https://foundry.paradigm.xyz | bash` then `foundryup`. On Windows Git Bash, add `export PATH="$PATH:$HOME/.foundry/bin"` to `~/.bashrc`.
+- Submodules: `git submodule update --init --recursive`
+- Check: `cd contracts && forge test` (92 tests pass)
 
-## 1. Tạo 4 ví testnet
+## 1. Create 4 testnet wallets
 
 ```bash
-cast wallet new   # chạy 3 lần: DEPLOYER, ORACLE, FAUCET
+cast wallet new   # run 3 times: DEPLOYER, ORACLE, FAUCET
 ```
-| Ví | Vai trò | Cần AVAX Fuji |
+| Wallet | Role | Fuji AVAX needed |
 |---|---|---|
-| DEPLOYER | Admin, Creator, Guardian | khoảng 1 AVAX (deploy, tạo challenge) |
-| ORACLE | Chỉ gọi `settle` / `finalize` | khoảng 0.5 AVAX |
-| FAUCET | Gửi gas cho người dùng mới | càng nhiều càng tốt (xem mục 4) |
-| TREASURY | Nhận lãi, thưởng không ai nhận | không cần, dùng địa chỉ ví Core của đội |
+| DEPLOYER | Admin, Creator, Guardian | about 1 AVAX (deploy, create challenges) |
+| ORACLE | Only calls `settle` / `finalize` | about 0.5 AVAX |
+| FAUCET | Sends gas to new users | as much as possible (see section 4) |
+| TREASURY | Receives yield and unclaimed rewards | none, use the team's Core wallet address |
 
-Xin AVAX Fuji: <https://core.app/tools/testnet-faucet/> hoặc faucet của BTC <https://team1vn.xyz/faucet.html>.
-Xin USDC Fuji (để test join): <https://faucet.circle.com>, chọn **Avalanche Fuji**.
+Get Fuji AVAX: <https://core.app/tools/testnet-faucet/> or the organizers' faucet <https://team1vn.xyz/faucet.html>.
+Get Fuji USDC (to test joining): <https://faucet.circle.com>, choose **Avalanche Fuji**.
 
-## 2. Deploy + verify contract
+## 2. Deploy + verify contracts
 
 ```bash
 cd contracts
 cp .env.example .env
-# Điền vào .env: PRIVATE_KEY (deployer), ORACLE_ADDRESS, TREASURY_ADDRESS, USE_CIRCLE_USDC=true
+# Fill in .env: PRIVATE_KEY (deployer), ORACLE_ADDRESS, TREASURY_ADDRESS, USE_CIRCLE_USDC=true
 set -a; source .env; set +a
 forge script script/Deploy.s.sol --rpc-url fuji --broadcast --verify
 ```
-- `--rpc-url fuji` và việc verify trên Snowtrace (qua Routescan) đã được cấu hình sẵn trong `foundry.toml`, không cần API key.
-- Địa chỉ được ghi vào `contracts/deployments/43113.json`. **Hãy commit file này.**
-- Ghi lại **số block lúc deploy** (xem trong `broadcast/Deploy.s.sol/43113/run-latest.json` hoặc trên Snowtrace), vì oracle và web sẽ cần đến.
-- Nếu bước verify lỗi giữa chừng, chạy lại cho từng contract:
-  `forge verify-contract <địa_chỉ> src/StudyStakeManager.sol:StudyStakeManager --chain 43113 --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan --etherscan-api-key verifyContract --constructor-args $(cast abi-encode "constructor(address,address,address)" <deployer> <treasury> <badge>)`
+- `--rpc-url fuji` and Snowtrace verification (through Routescan) are already configured in `foundry.toml`, no API key needed.
+- Addresses are written to `contracts/deployments/43113.json`. **Commit this file.**
+- Record the **block number at deploy time** (in `broadcast/Deploy.s.sol/43113/run-latest.json` or on Snowtrace), since the oracle and web need it.
+- If verification fails midway, rerun it per contract:
+  `forge verify-contract <address> src/StudyStakeManager.sol:StudyStakeManager --chain 43113 --verifier-url https://api.routescan.io/v2/network/testnet/evm/43113/etherscan --etherscan-api-key verifyContract --constructor-args $(cast abi-encode "constructor(address,address,address)" <deployer> <treasury> <badge>)`
 
 ## 3. Privy
 
-1. Tạo app ở <https://dashboard.privy.io>, bật login **Google**, **Email** và **Wallet**.
-2. Mục *Allowed origins*: thêm domain của web (và `http://localhost:3000` để dev).
-3. Ghi lại **App ID** (dùng cho cả web lẫn oracle).
+1. Create an app at <https://dashboard.privy.io>, enable **Google**, **Email** and **Wallet** login.
+2. Under *Allowed origins*: add the web domain (and `http://localhost:3000` for dev).
+3. Record the **App ID** (used by both web and oracle).
 
 ## 4. Oracle (Cloudflare Worker)
 
 ```bash
 cd oracle
 npx wrangler login
-npx wrangler kv namespace create STATE      # dán id vào wrangler.toml
+npx wrangler kv namespace create STATE      # paste the id into wrangler.toml
 npx wrangler r2 bucket create studystake-evidence
 ```
-> R2 có thể yêu cầu thêm phương thức thanh toán vào tài khoản Cloudflare, dù vẫn trong hạn mức miễn phí.
+> R2 may ask you to add a payment method to the Cloudflare account, even within the free tier.
 
-Sửa `wrangler.toml`: `MANAGER_ADDRESS`, `DEPLOY_BLOCK`, `ALLOWED_ORIGINS` (domain web). Faucet mặc định gửi 0.05 AVAX, tối đa 20 lần mỗi ngày (khoảng 1 AVAX/ngày). Nếu ví FAUCET ít AVAX thì giảm `FAUCET_AMOUNT_WEI` (ví dụ `10000000000000000` = 0.01 AVAX, vẫn đủ cho vài lần join và claim).
+Edit `wrangler.toml`: `MANAGER_ADDRESS`, `DEPLOY_BLOCK`, `ALLOWED_ORIGINS` (web domain). The faucet sends 0.05 AVAX by default, at most 20 times per day (about 1 AVAX/day). If the FAUCET wallet has little AVAX, lower `FAUCET_AMOUNT_WEI` (for example `10000000000000000` = 0.01 AVAX, still enough for a few joins and claims).
 
 ```bash
 npx wrangler secret put ORACLE_PRIVATE_KEY
@@ -64,39 +64,39 @@ npx wrangler secret put FAUCET_PRIVATE_KEY
 npx wrangler secret put TOKEN_ENC_KEY       # node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 npx wrangler secret put PRIVY_APP_ID
 npm run deploy
-curl https://<worker>.workers.dev/health    # phải thấy chain_id 43113 và đúng manager
+curl https://<worker>.workers.dev/health    # must show chain_id 43113 and the right manager
 ```
 
 ## 5. Web
 
 ```bash
 cd web
-NEXT_PUBLIC_CHAIN_ID=43113 node scripts/sync_deployments.mjs   # cần contracts/out (forge build)
+NEXT_PUBLIC_CHAIN_ID=43113 node scripts/sync_deployments.mjs   # needs contracts/out (forge build)
 ```
-Commit `web/src/generated/*`, vì môi trường build (Vercel, Pages) không có Foundry.
+Commit `web/src/generated/*`, because build environments (Vercel, Pages) do not have Foundry.
 
-Biến môi trường khi deploy (Vercel: Root Directory = `web`):
+Environment variables at deploy time (Vercel: Root Directory = `web`):
 ```
 NEXT_PUBLIC_CHAIN_ID=43113
 NEXT_PUBLIC_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
 NEXT_PUBLIC_ORACLE_URL=https://<worker>.workers.dev
 NEXT_PUBLIC_PRIVY_APP_ID=<app id>
-NEXT_PUBLIC_DEPLOY_BLOCK=<block deploy>
+NEXT_PUBLIC_DEPLOY_BLOCK=<deploy block>
 ```
 
-## 6. Chạy thử một vòng đầy đủ trên Fuji (bắt buộc trước khi quay video)
+## 6. Run one full round on Fuji (mandatory before recording the video)
 
-1. Mở `/admin` bằng ví DEPLOYER, tạo challenge với token **USDC (Circle)**, thời gian ngắn (join 10 phút, hạn 1 giờ).
-2. Một người **ngoài đội**: đăng nhập Google, kiểm tra tự nhận 0.05 AVAX gas, xin USDC ở faucet Circle, liên kết Demo LMS, join, rồi làm bài demo.
-3. Sponsor vài USDC từ `/admin` (form tự approve).
-4. Chờ cron settle (5 phút một lần) → cửa sổ khiếu nại → finalize → claim. Mở `/verify/<id>`.
-5. Ghi tx hash của **join, sponsor, settle, finalize, claim** vào README (bảng "Tx thật trên Fuji").
+1. Open `/admin` with the DEPLOYER wallet, create a challenge with the **USDC (Circle)** token and short durations (10-minute join, 1-hour deadline).
+2. Someone **outside the team**: log in with Google, check the automatic 0.05 AVAX gas, get USDC from Circle's faucet, link the Demo LMS, join, then do the demo work.
+3. Sponsor a few USDC from `/admin` (the form approves by itself).
+4. Wait for cron settle (every 5 minutes) → dispute window → finalize → claim. Open `/verify/<id>`.
+5. Record the tx hashes of **join, sponsor, settle, finalize, claim** in the README ("Real txs on Fuji" table).
 
-## Checklist P0
-- [ ] `contracts/deployments/43113.json` đã commit, 4 contract đã verify trên Snowtrace
-- [ ] Oracle `/health` trả về chain 43113
-- [ ] Web chạy trên domain public, đăng nhập Google được
-- [ ] Ví mới tự nhận AVAX gas
-- [ ] Join bằng Circle USDC trong 1 giao dịch (permit)
-- [ ] Một vòng đầy đủ đến claim, có tx hash trong README
-- [ ] Đã thử bằng ví Core (extension) và MetaMask (tự thêm mạng Fuji)
+## P0 checklist
+- [ ] `contracts/deployments/43113.json` committed, 4 contracts verified on Snowtrace
+- [ ] Oracle `/health` returns chain 43113
+- [ ] Web runs on a public domain, Google login works
+- [ ] A new wallet automatically receives AVAX gas
+- [ ] Join with Circle USDC in 1 transaction (permit)
+- [ ] One full round up to claim, with tx hashes in the README
+- [ ] Tried with the Core wallet (extension) and MetaMask (adds the Fuji network by itself)

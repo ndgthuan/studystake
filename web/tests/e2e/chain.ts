@@ -62,6 +62,15 @@ export async function block_time(): Promise<number> {
   return Number(b.timestamp);
 }
 
+/**
+ * Anvil gives each block a later timestamp than the last, so a burst of transactions runs ahead of the wall clock. The
+ * oracle stamps demo submissions with the wall clock and rejects any before joined_at (before_join), so wait it out.
+ */
+export async function wait_for_wall_clock(): Promise<void> {
+  const latest = Number((await public_client.getBlock()).timestamp);
+  while (Math.floor(Date.now() / 1000) <= latest) await new Promise((r) => setTimeout(r, 200));
+}
+
 export async function set_time(target: number): Promise<void> {
   const now = await block_time();
   if (target > now) await rpc('evm_increaseTime', [target - now]);

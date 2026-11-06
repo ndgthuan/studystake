@@ -86,7 +86,7 @@ try {
           viewport: { width: vp.width, height: vp.height },
           colorScheme: theme,
         });
-        // The app reads its language from localStorage 'ss_lang' ('vi' | 'en') before first render.
+        // The app reads its language from localStorage 'ss_lang' ('vi' | 'en') right after hydrating.
         await ctx.addInitScript(
           (lang) => {
             try {

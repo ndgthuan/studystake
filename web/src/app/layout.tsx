@@ -21,9 +21,17 @@ export const viewport: Viewport = {
   themeColor: '#000000',
 };
 
+// The server cannot read localStorage, so its HTML always says dark. This runs before the body is parsed, so a saved
+// light theme never flashes dark. Key and values must match the read_pref('ss_theme') call in providers.tsx.
+const APPLY_SAVED_THEME = `try{if(localStorage.getItem('ss_theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" data-theme="dark" className={font.className}>
+    // suppressHydrationWarning: APPLY_SAVED_THEME may change data-theme on <html> before React hydrates.
+    <html lang="vi" data-theme="dark" className={font.className} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: APPLY_SAVED_THEME }} />
+      </head>
       <body>
         <Providers>
           <SiteHeader />

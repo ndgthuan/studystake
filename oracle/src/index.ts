@@ -6,12 +6,14 @@ import { verify_privy_jwt } from './auth.ts';
 import { build_chain, chain_for, STATUS, type ChainPort, type ChallengeRow } from './chain.ts';
 import { canonical_json } from './canonical.ts';
 import { is_allowed_site, load_config, normalize_site, type Config, type Env } from './config.ts';
+import { consent_key, read_share_state, write_consent } from './credential.ts';
 import { decrypt_token, encrypt_token } from './crypto.ts';
 import { run_faucet_grant, verify_turnstile } from './faucet.ts';
 import { check_evidence_upload, committed_proof, is_committed, load_committed_evidence } from './evidence.ts';
 import { ApiError, client_ip, cors_headers, error_response, json_response, MAX_EVIDENCE_BYTES, read_json } from './http.ts';
 import {
   check_issued_at,
+  consent_message,
   demo_submit_message,
   link_body_schema,
   link_message,
@@ -90,6 +92,12 @@ const metadata_post_schema = z.strictObject({
   signature: hex_sig,
   issued_at: z.number().int().positive(),
   metadata: z.unknown(),
+});
+const consent_schema = z.strictObject({
+  wallet: wallet_schema,
+  share: z.boolean(),
+  signature: hex_sig,
+  issued_at: z.number().int().positive(),
 });
 const faucet_schema = z.strictObject({
   wallet: wallet_schema,
@@ -185,6 +193,14 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
   if (req.method === 'GET' && parts[0] === 'proof' && parts.length === 3) {
     if (!wallet_schema.safeParse(parts[2]).success) throw new ApiError(400, 'invalid_wallet', 'account must be 0x + 40 hex');
     return handle_proof(rt, parse_challenge_id(parts[1]!), parts[2]!);
+  }
+
+  if (req.method === 'POST' && path === '/x402/credential/consent') return handle_consent_post(req, rt, now);
+
+  if (req.method === 'GET' && parts[0] === 'x402' && parts[1] === 'credential' && parts[3] === 'consent' && parts.length === 4) {
+    if (!wallet_schema.safeParse(parts[2]).success) throw new ApiError(400, 'invalid_wallet', 'wallet must be 0x + 40 hex');
+    const { share } = await read_share_state(rt.store.kv, parts[2]!);
+    return json_response({ wallet: parts[2]!.toLowerCase(), share }, 200);
   }
 
   if (req.method === 'POST' && path === '/faucet') return handle_faucet(req, rt, now);
@@ -291,7 +307,26 @@ async function handle_unlink(req: Request, rt: Runtime, now: number): Promise<Re
   if (link !== null) {
     await put_json(rt.store.kv, `link:${wallet}`, { ...link, token_enc: null });
   }
+  await rt.store.kv.delete(consent_key(wallet));
   return json_response({ ok: true }, 200);
+}
+
+/** The student opts in or out of selling their credential. Both directions need a fresh, single-use wallet signature. */
+async function handle_consent_post(req: Request, rt: Runtime, now: number): Promise<Response> {
+  const limited = await check_rate_limit(rt.store.kv, 'consent', client_ip(req), 20, 60, now);
+  if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
+  const body = await read_json(req, consent_schema);
+  require_fresh(body.issued_at, now);
+  require_signature(await signature_matches(body.wallet, consent_message(body.wallet, body.share, body.issued_at), body.signature));
+
+  const nonce = nonce_key(body.wallet, 'credential', String(body.share), body.issued_at, 'consent');
+  if ((await rt.store.kv.get(nonce)) !== null) throw new ApiError(409, 'replay', 'signature already used');
+  await rt.store.kv.put(nonce, '1', { expirationTtl: NONCE_TTL_SECONDS });
+
+  const link = await get_link(rt.store.kv, body.wallet);
+  if (link === null) throw new ApiError(404, 'not_linked', 'wallet has no LMS link');
+  await write_consent(rt.store.kv, link, body.share, now);
+  return json_response({ wallet: body.wallet.toLowerCase(), share: body.share }, 200);
 }
 
 async function handle_demo_submit(req: Request, rt: Runtime, now: number): Promise<Response> {

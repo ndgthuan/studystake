@@ -1,5 +1,5 @@
 // Chain access: viem clients, StudyStakeManager reads and writes, Joined log scan.
-import { createPublicClient, createWalletClient, http, parseAbiItem, type Chain, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, parseAbiItem, type Chain, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { manager_abi } from './abi/manager.ts';
 import type { Config } from './config.ts';
@@ -39,6 +39,13 @@ export interface ChallengeRow {
   treasury_collected: boolean;
 }
 
+export interface BadgeStats {
+  streak: number;
+  best_streak: number;
+  total_completed: number;
+  total_failed: number;
+}
+
 export interface SettleArgs {
   id: number;
   root: `0x${string}`;
@@ -61,9 +68,16 @@ export interface ChainPort {
   expire(id: number): Promise<string>;
   collect_treasury(id: number): Promise<string>;
   has_creator_role(address: string): Promise<boolean>;
+  /** Study record from StudyBadge. All zero when the account has no badge. */
+  badge_stats(account: string): Promise<BadgeStats>;
   creator_role(): Promise<`0x${string}`>;
   oracle_address(): string;
 }
+
+const badge_abi = parseAbi([
+  'function badge_of(address account) view returns (uint256)',
+  'function stats_of(uint256 token_id) view returns (uint32 streak, uint32 best_streak, uint32 total_completed, uint32 total_failed, uint64 last_update)',
+]);
 
 const joined_event = parseAbiItem(
   'event Joined(uint256 indexed id, address indexed account, uint128 amount, uint256 shares, uint64 joined_time)',
@@ -158,6 +172,18 @@ export function build_chain(chain: Chain, cfg: Config, transport?: ReturnType<ty
         functionName: 'hasRole',
         args: [role, address as `0x${string}`],
       });
+    },
+    async badge_stats(account) {
+      const badge = await public_client.readContract({ address: manager, abi: manager_abi, functionName: 'badge' });
+      const token_id = await public_client.readContract({ address: badge, abi: badge_abi, functionName: 'badge_of', args: [account as `0x${string}`] });
+      if (token_id === 0n) return { streak: 0, best_streak: 0, total_completed: 0, total_failed: 0 };
+      const [streak, best_streak, total_completed, total_failed] = await public_client.readContract({
+        address: badge,
+        abi: badge_abi,
+        functionName: 'stats_of',
+        args: [token_id],
+      });
+      return { streak, best_streak, total_completed, total_failed };
     },
     async creator_role() {
       return public_client.readContract({ address: manager, abi: manager_abi, functionName: 'CREATOR_ROLE' });

@@ -1,7 +1,7 @@
 'use client';
 // Providers. With NEXT_PUBLIC_PRIVY_APP_ID set: Privy + wagmi (embedded wallet and external wallets).
 // Without it: plain wagmi with an injected connector only, so local and E2E runs need no Privy.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { injected_connector } from '@/lib/injected_connector';
@@ -49,8 +49,15 @@ function build_privy_config() {
 
 export function Providers({ children }: { children: ReactNode }) {
   const [query_client] = useState(() => new QueryClient());
-  const [lang, set_lang_state] = useState<Lang>(() => read_pref<Lang>('ss_lang', ['vi', 'en'], 'vi'));
-  const [theme, set_theme_state] = useState<Theme>(() => read_pref<Theme>('ss_theme', ['dark', 'light'], 'dark'));
+  // The first client render must match the server HTML, which cannot know the saved values. Reading localStorage in
+  // the useState initializers instead would make hydration fail for anyone with a saved preference.
+  const [lang, set_lang_state] = useState<Lang>('vi');
+  const [theme, set_theme_state] = useState<Theme>('dark');
+
+  useEffect(() => {
+    set_lang_state(read_pref<Lang>('ss_lang', ['vi', 'en'], 'vi'));
+    set_theme_state(read_pref<Theme>('ss_theme', ['dark', 'light'], 'dark'));
+  }, []);
 
   const set_lang = (l: Lang) => {
     write_pref('ss_lang', l);

@@ -32,7 +32,8 @@ export function cors_headers(origin: string | null, allowed_csv: string): Record
   const headers: Record<string, string> = {
     vary: 'Origin',
     'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'access-control-allow-headers': 'content-type, authorization',
+    'access-control-allow-headers': 'content-type, authorization, payment-signature',
+    'access-control-expose-headers': 'payment-required, payment-response',
     'access-control-max-age': '600',
   };
   if (ok) headers['access-control-allow-origin'] = ok;

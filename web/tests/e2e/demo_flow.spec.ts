@@ -4,7 +4,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { install_injected_wallet, type AnvilAccount } from './injected_provider';
 import type { Address } from 'viem';
-import { chain_helpers, RPC, set_time } from './chain';
+import { chain_helpers, RPC, set_time, wait_for_wall_clock } from './chain';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -68,6 +68,8 @@ test('demo challenge: join, sponsor, yield, submit, settle, finalize, claim, ver
   for (const key of ['a1', 'a2', 'a3'] as const) {
     await h.link_demo(who[key]);
   }
+
+  await wait_for_wall_clock();
 
   // Demo submissions for a1 and a2 through the UI. Each click must be confirmed by the oracle's "DEMO · OK".
   for (const key of ['a1', 'a2'] as const) {

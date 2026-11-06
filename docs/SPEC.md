@@ -1,31 +1,31 @@
-# StudyStake — Spec v0.1 (Phase 0, chờ duyệt)
+# StudyStake — Spec v0.1 (Phase 0, pending approval)
 
-> **Cam kết học, không mất gốc.** Sinh viên đặt cọc USDC để cam kết nộp bài Moodle đúng hạn. Cọc được gửi vào vault sinh lãi. Người giữ cam kết nhận lại gốc, cộng thêm lãi của cả nhóm và quỹ thưởng tài trợ. Người trễ hạn vẫn nhận lại **100% gốc**, chỉ mất phần thưởng.
+> **Commit to studying, never lose your principal.** Students stake USDC to commit to submitting Moodle work on time. The stake goes into a yield vault. Those who keep the commitment get their principal back, plus the group's yield and a sponsored reward pool. Those who miss the deadline still get **100% of their principal** back and only lose the reward.
 
-Hackathon: Team1 Vietnam UniHack. Hạn nộp: **23:59 21/11/2026**. Mạng: **Avalanche Fuji** (C-Chain testnet).
+Hackathon: Team1 Vietnam UniHack. Deadline: **23:59 21/11/2026**. Network: **Avalanche Fuji** (C-Chain testnet).
 
 ---
 
-## 1. Vấn đề và giải pháp
+## 1. Problem and solution
 
 | | |
 |---|---|
-| **Vấn đề** | Sinh viên trễ quiz/bài nộp trên Moodle vì thiếu động lực ngắn hạn. Các app nhắc lịch thì dễ bị lờ đi. Các mô hình "cược tiền" (StickK, Beeminder) gây cảm giác cờ bạc, và mất tiền thật làm người dùng ngại thử. |
-| **Giải pháp** | Đặt cọc **no-loss** (không mất gốc). Động lực đến từ 3 nguồn: (1) lãi của cả pool chỉ chia cho người hoàn thành, (2) quỹ thưởng do trường/CLB/nhà tài trợ góp, (3) huy hiệu soulbound và chuỗi ngày (streak) công khai on-chain. |
-| **Vì sao cần blockchain** | Tiền cọc không nằm trong tay ai: không có thủ quỹ hay công ty nào giữ hộ. Luật chia thưởng công khai và không sửa được. Kết quả xác minh có bằng chứng, ai cũng kiểm tra được. Huy hiệu là hồ sơ học tập mà sinh viên tự sở hữu. |
+| **Problem** | Students miss Moodle quizzes and submissions because they lack short-term motivation. Reminder apps are easy to ignore. "Bet your money" models (StickK, Beeminder) feel like gambling, and losing real money makes people reluctant to try. |
+| **Solution** | A **no-loss** stake (you never lose principal). Motivation comes from 3 sources: (1) the pool's yield is shared only among completers, (2) a reward pool funded by schools, clubs and sponsors, (3) soulbound badges and a public on-chain streak. |
+| **Why blockchain** | The stake is in nobody's hands: no treasurer or company holds it. The reward rules are public and cannot be changed. Results are verified with evidence anyone can check. Badges are a study record students own themselves. |
 
-## 2. Luồng người dùng
+## 2. User flow
 
-1. **Đăng nhập** bằng Google qua **Privy**. Người dùng tự có ví embedded mà không cần cài MetaMask hay biết seed phrase. Ví ngoài (Core/MetaMask) vẫn dùng được.
-2. **Nhận gas lần đầu:** Worker faucet tự gửi 0.05 AVAX Fuji cho tài khoản mới, có giới hạn tần suất.
-3. **Liên kết Moodle:** dán Moodle mobile token. Oracle gọi `core_webservice_get_site_info` để xác định `userid`, sau đó ràng buộc `(site, userid) ↔ ví` một-một.
-4. **Chọn challenge**, ví dụ "CSC10002 – Quiz tuần 10–12". Challenge ghi rõ khóa học, các hoạt động (quiz/assign) và hạn chót.
-5. **Đặt cọc** 1–100 USDC bằng **một giao dịch** (EIP-2612 `permit` + join).
-6. **Theo dõi tiến độ:** dashboard hiển thị từng hoạt động đã nộp hay chưa và đếm ngược thời gian.
-7. **Kết thúc:** oracle tổng hợp kết quả thành Merkle root và đưa lên contract kèm hash bằng chứng. Sau đó có **cửa sổ khiếu nại** (24h, bản demo là 10 phút).
-8. **Nhận tiền:** người hoàn thành nhận gốc + phần thưởng + huy hiệu SBT, streak +1. Người không hoàn thành nhận lại gốc.
+1. **Log in** with Google through **Privy**. The user gets an embedded wallet without installing MetaMask or knowing a seed phrase. External wallets (Core/MetaMask) still work.
+2. **Get first-time gas:** the Worker faucet automatically sends 0.05 Fuji AVAX to new accounts, rate limited.
+3. **Link Moodle:** paste a Moodle mobile token. The oracle calls `core_webservice_get_site_info` to identify the `userid`, then binds `(site, userid) ↔ wallet` one-to-one.
+4. **Pick a challenge**, for example "CSC10002 – Quiz weeks 10–12". The challenge states the course, the activities (quiz/assign) and the deadline.
+5. **Stake** 1–100 USDC in **one transaction** (EIP-2612 `permit` + join).
+6. **Track progress:** the dashboard shows whether each activity is submitted and a countdown.
+7. **End:** the oracle aggregates the results into a Merkle root and posts it on the contract with an evidence hash. Then comes a **dispute window** (24h, 10 minutes in the demo).
+8. **Get paid:** completers receive principal + reward + an SBT badge, streak +1. Non-completers get their principal back.
 
-## 3. Kiến trúc
+## 3. Architecture
 
 ```
 ┌──────────────┐  Privy auth   ┌──────────────────────────┐
@@ -42,123 +42,123 @@ Hackathon: Team1 Vietnam UniHack. Hạn nộp: **23:59 21/11/2026**. Mạng: **A
 │  │                 AaveV3Adapter (mainnet, roadmap)       │
 │  └─ StudyBadge (ERC-721 soulbound, ERC-5192)             │
 └─────────────────────────────┘
-Bằng chứng (JSON, chỉ chứa hash, không có tên): Cloudflare R2, keccak lưu on-chain
+Evidence (JSON, hashes only, no names): Cloudflare R2, keccak stored on-chain
 ```
 
 **Repo** (monorepo `unihack/`):
 - `contracts/`: Foundry, Solidity 0.8.28, OpenZeppelin v5
 - `oracle/`: Cloudflare Worker, TypeScript, viem, KV + R2
-- `web/`: Next.js App Router, Privy, wagmi/viem, Tailwind, giao diện tiếng Việt/Anh, dark mode nền đen tuyền
+- `web/`: Next.js App Router, Privy, wagmi/viem, Tailwind, Vietnamese/English UI, pure black dark mode
 - `docs/`: SPEC, THREAT_MODEL, DEMO_SCRIPT, PITCH
 
-**Quy ước code:** tên hàm, biến, method dùng `snake_case` (theo quy ước của đội), kể cả trong Solidity và TS. Tên bắt buộc theo chuẩn như ERC (`transferFrom`, `permit`, `supportsInterface`...) và hook của React/Next (`useXxx`, component PascalCase) thì giữ nguyên.
+**Code conventions:** functions, variables and methods use `snake_case` (the team's convention), including in Solidity and TS. Names required by standards such as ERC (`transferFrom`, `permit`, `supportsInterface`...) and React/Next hooks (`useXxx`, PascalCase components) stay as they are.
 
-## 4. Smart contract
+## 4. Smart contracts
 
 ### 4.1 `StudyStakeManager`
-Vai trò (OpenZeppelin `AccessControl`):
+Roles (OpenZeppelin `AccessControl`):
 
-| Role | Quyền | Không được làm |
+| Role | Can | Cannot |
 |---|---|---|
-| `DEFAULT_ADMIN` | cấp/thu hồi role, đặt treasury, allowlist token/vault | **Không** rút được gốc của bất kỳ ai |
-| `CREATOR_ROLE` | tạo challenge | |
-| `ORACLE_ROLE` | `settle` (đưa root), chỉ 1 lần mỗi challenge | Không động được vào tiền |
-| `GUARDIAN_ROLE` | xử lý khiếu nại (thay root), `pause` việc join/settle | Không pause được `claim` hay `expire` |
+| `DEFAULT_ADMIN` | grant/revoke roles, set treasury, allowlist tokens/vaults | **Cannot** withdraw anyone's principal |
+| `CREATOR_ROLE` | create challenges | |
+| `ORACLE_ROLE` | `settle` (post the root), once per challenge | Cannot touch money |
+| `GUARDIAN_ROLE` | handle disputes (replace the root), `pause` join/settle | Cannot pause `claim` or `expire` |
 
-**Trạng thái challenge:** `Open → Active → Settling → (Disputed →) Finalized`, hoặc `Expired` nếu oracle không settle kịp.
+**Challenge states:** `Open → Active → Settling → (Disputed →) Finalized`, or `Expired` if the oracle does not settle in time.
 
 ```
 create_challenge(token, vault, min_stake, max_stake, join_deadline, end_time,
                  settle_grace, dispute_window, metadata_uri, metadata_hash)
-sponsor(id, amount)                      // ai cũng góp quỹ thưởng được, trước end_time
-join(id, amount) / join_with_permit(...) // trước join_deadline; 1 ví 1 lần
-settle(id, root, completed_count, completed_stake, evidence_hash) // ORACLE, sau end_time, trước end_time+settle_grace
-dispute(id, reason_hash)                 // participant, trong dispute_window
+sponsor(id, amount)                      // anyone can add to the reward pool, before end_time
+join(id, amount) / join_with_permit(...) // before join_deadline; one join per wallet
+settle(id, root, completed_count, completed_stake, evidence_hash) // ORACLE, after end_time, before end_time+settle_grace
+dispute(id, reason_hash)                 // participant, during dispute_window
 resolve_dispute(id, new_root, completed_count, completed_stake, evidence_hash) // GUARDIAN
-finalize(id)                             // bất kỳ ai, sau dispute_window; redeem vault, chốt pot
-expire(id)                               // bất kỳ ai, nếu quá end_time+settle_grace mà chưa settle
-claim(id, completed, proof)              // gốc + (nếu completed và proof hợp lệ) thưởng; mint/cập nhật badge
-sweep_rewards(id)                        // sau claim_period 180 ngày: chỉ phần THƯỞNG chưa nhận → treasury
+finalize(id)                             // anyone, after dispute_window; redeems the vault, fixes the pot
+expire(id)                               // anyone, if end_time+settle_grace passed without a settle
+claim(id, completed, proof)              // principal + (if completed and proof is valid) reward; mints/updates the badge
+sweep_rewards(id)                        // after the 180-day claim_period: only UNCLAIMED REWARDS → treasury
 ```
 
-**Leaf Merkle:** `keccak256(bytes.concat(keccak256(abi.encode(chain_id, manager, id, account, stake))))`. Leaf được băm 2 lần theo chuẩn OpenZeppelin `StandardMerkleTree` để chống tấn công second-preimage. Leaf có `chain_id` và địa chỉ contract nên không dùng lại được ở chain hay contract khác. Cây chỉ chứa người hoàn thành.
+**Merkle leaf:** `keccak256(bytes.concat(keccak256(abi.encode(chain_id, manager, id, account, stake))))`. The leaf is hashed twice following OpenZeppelin `StandardMerkleTree` to prevent second-preimage attacks. It contains `chain_id` and the contract address so it cannot be reused on another chain or contract. The tree contains only completers.
 
-**Kế toán khi `finalize`:**
-- `assets = vault.redeem(all_shares)`, `P` = tổng gốc.
-- Nếu `assets ≥ P`: lãi `Y = assets − P`, pot thưởng `R = Y + bonus`.
-- Nếu `assets < P` (vault lỗ): mọi người nhận `stake × assets / P` và `R = bonus`. Phần README ghi rõ: no-loss chỉ an toàn bằng nguồn sinh lãi.
-- Phần thưởng của người i: `min(R × stake_i / completed_stake, R − paid)`. Nếu oracle khai sai `completed_stake` thì phần thưởng bị giới hạn, **không bao giờ lấn vào gốc**.
-- Nếu `completed_stake == 0`: lãi về treasury, bonus hoàn lại cho từng sponsor theo tỉ lệ.
-- `expire`: mọi người nhận gốc + lãi chia theo tỉ lệ cọc, bonus hoàn lại sponsor.
+**Accounting at `finalize`:**
+- `assets = vault.redeem(all_shares)`, `P` = total principal.
+- If `assets ≥ P`: yield `Y = assets − P`, reward pot `R = Y + bonus`.
+- If `assets < P` (vault loss): everyone receives `stake × assets / P` and `R = bonus`. The README states clearly: no-loss is only as safe as the yield source.
+- Participant i's reward: `min(R × stake_i / completed_stake, R − paid)`. If the oracle misreports `completed_stake`, rewards are capped and **never eat into principal**.
+- If `completed_stake == 0`: yield goes to the treasury, and the bonus is refunded to each sponsor pro rata.
+- `expire`: everyone receives principal + yield pro rata to stake, and the bonus is refunded to sponsors.
 
-**Bất biến (invariant), kiểm bằng fuzz/invariant test:**
-1. `token.balanceOf(manager) + giá trị share trong vault ≥ tổng gốc chưa claim + thưởng chưa claim` (trừ khi vault lỗ).
-2. Tổng tiền trả ra của một challenge ≤ tiền vào + lãi.
-3. Không role nào làm giảm được số gốc mà một participant claim được (trừ khi vault lỗ).
-4. Mỗi `(id, account)` chỉ claim được 1 lần. Mỗi challenge chỉ settle 1 lần (trừ khi resolve dispute).
-5. `claim` và `expire` không bao giờ bị pause.
+**Invariants, checked with fuzz/invariant tests:**
+1. `token.balanceOf(manager) + value of vault shares ≥ total unclaimed principal + unclaimed rewards` (unless the vault takes a loss).
+2. Total paid out of a challenge ≤ money in + yield.
+3. No role can reduce the principal a participant can claim (unless the vault takes a loss).
+4. Each `(id, account)` can claim only once. Each challenge settles only once (except via resolve dispute).
+5. `claim` and `expire` are never paused.
 
-**An toàn kỹ thuật:** `ReentrancyGuard`, `SafeERC20`, checks-effects-interactions. Chỉ cho phép token/vault trong allowlist, không nhận token fee-on-transfer hay rebasing. Mọi tham số thời gian được kiểm tra hợp lệ. Emit event đầy đủ cho indexer và UI.
+**Technical safety:** `ReentrancyGuard`, `SafeERC20`, checks-effects-interactions. Only allowlisted tokens/vaults are accepted, no fee-on-transfer or rebasing tokens. All time parameters are validated. Full events for indexers and the UI.
 
-### 4.2 `MockYieldVault` (ERC-4626, chỉ dùng trên Fuji)
-- Fuji không có Aave/Benqi hoạt động, nên lãi trên testnet là **mô phỏng**. Bản demo nói thẳng điều này.
-- Owner nạp "quỹ lãi", vault nhả dần theo APR cấu hình (ví dụ 8%/năm) bằng cách tăng `totalAssets` tuyến tính. Dùng OpenZeppelin ERC-4626 có `_decimalsOffset` để chống inflation attack.
-- Cho mainnet: interface `IYieldSource` và `AaveV3Adapter` qua static aToken ERC-4626 (lộ trình, có thể có kèm test fork nếu kịp).
+### 4.2 `MockYieldVault` (ERC-4626, Fuji only)
+- Fuji has no live Aave/Benqi, so yield on testnet is **simulated**. The demo says so plainly.
+- The owner funds a "yield pool", and the vault releases it at a configured APR (for example 8% per year) by increasing `totalAssets` linearly. Uses OpenZeppelin ERC-4626 with `_decimalsOffset` to prevent inflation attacks.
+- For mainnet: an `IYieldSource` interface and an `AaveV3Adapter` via the static aToken ERC-4626 (roadmap, possibly with a fork test if time permits).
 
-### 4.3 `StudyBadge` (ERC-721 soulbound, ERC-5192)
-- Mint khi claim lần đầu ở trạng thái completed. Mỗi ví có 1 badge, mỗi lần hoàn thành thì `streak` và `total_completed` tăng.
-- `tokenURI` sinh SVG on-chain (cấp độ Đồng/Bạc/Vàng theo streak). Không chuyển nhượng được, `locked() = true`.
-- Chỉ Manager có quyền mint/update.
+### 4.3 `StudyBadge` (soulbound ERC-721, ERC-5192)
+- Minted on the first claim in the completed state. One badge per wallet; each completion increases `streak` and `total_completed`.
+- `tokenURI` generates the SVG on-chain (Bronze/Silver/Gold tiers by streak). Non-transferable, `locked() = true`.
+- Only the Manager can mint/update.
 
 ### 4.4 Token
-- Mặc định dùng **USDC Fuji của Circle** (`0x5425890298aed601595a70AB815c96711a31Bc65`, có `permit`). Người dùng lấy USDC ở faucet.circle.com.
-- Dự phòng `tUSDC` (mock, 6 decimals, có faucet trong app) nếu faucet của Circle bị giới hạn khi demo.
+- Defaults to **Circle's Fuji USDC** (`0x5425890298aed601595a70AB815c96711a31Bc65`, has `permit`). Users get USDC at faucet.circle.com.
+- Backup: `tUSDC` (mock, 6 decimals, with an in-app faucet) if Circle's faucet is limited during the demo.
 
 ## 5. Oracle (Cloudflare Worker)
 
-| Endpoint | Chức năng |
+| Endpoint | Function |
 |---|---|
-| `POST /link/moodle` | Xác thực Privy JWT. Nhận Moodle token, gọi site_info, ràng buộc `(site,userid)↔wallet` (1-1, lưu trong KV). Token mã hóa AES-GCM bằng secret, **xóa sau khi challenge settle** |
-| `POST /link/demo` | Liên kết với **Demo LMS** để giám khảo và người xem tự thử mà không cần Moodle của HCMUS |
-| `GET /progress/:id/:wallet` | Tiến độ từng hoạt động |
-| `POST /faucet` | Gửi 0.05 AVAX cho người dùng mới. Giới hạn theo Privy user id và địa chỉ, có Turnstile |
-| `cron */5` | Tìm challenge đã quá `end_time` → kiểm tra từng participant → dựng `StandardMerkleTree` → upload bằng chứng JSON lên R2 → `settle()` |
-| `GET /evidence/:id` | Tải JSON bằng chứng và file tree để tự kiểm tra |
+| `POST /link/moodle` | Verifies the Privy JWT. Takes the Moodle token, calls site_info, binds `(site,userid)↔wallet` (1-1, stored in KV). The token is AES-GCM encrypted with a secret and **deleted after the challenge settles** |
+| `POST /link/demo` | Links to the **Demo LMS** so judges and viewers can try it without HCMUS Moodle |
+| `GET /progress/:id/:wallet` | Progress per activity |
+| `POST /faucet` | Sends 0.05 AVAX to new users. Limited per Privy user id and address, with Turnstile |
+| `cron */5` | Finds challenges past `end_time` → checks each participant → builds a `StandardMerkleTree` → uploads evidence JSON to R2 → `settle()` |
+| `GET /evidence/:id` | Downloads the evidence JSON and tree file for self-checking |
 
-**Thế nào là "hoàn thành":** mọi hoạt động trong challenge đều có submission/attempt trạng thái `finished`/`submitted` với `timefinish ≤ min(duedate, end_time)`. Có thể đặt thêm điểm tối thiểu.
+**What "completed" means:** every activity in the challenge has a submission/attempt in state `finished`/`submitted` with `timefinish ≤ min(duedate, end_time)`. A minimum grade can also be set.
 - Quiz: `mod_quiz_get_user_attempts`
 - Assign: `mod_assign_get_submission_status`
 
-**Demo LMS:** một mini-LMS nằm trong cùng Worker, có trang "Làm quiz demo" và nút "Nộp bài". Dùng cho video, Demo Day và giám khảo, được gắn nhãn DEMO rõ ràng.
+**Demo LMS:** a mini-LMS inside the same Worker, with a "Take demo quiz" page and a "Submit" button. Used for the video, Demo Day and judges, and clearly labeled DEMO.
 
 ## 6. Web (Next.js)
-Các trang: `/` landing · `/challenges` · `/challenges/[id]` (join, tiến độ, đếm ngược, bằng chứng) · `/me` (khoản cọc, badge, streak, claim) · `/link` (Moodle/Demo) · `/admin` (tạo challenge, sponsor, theo dõi settle/khiếu nại) · `/verify/[id]` (ai cũng tự kiểm Merkle được).
+Pages: `/` landing · `/challenges` · `/challenges/[id]` (join, progress, countdown, evidence) · `/me` (stakes, badge, streak, claim) · `/link` (Moodle/Demo) · `/admin` (create challenge, sponsor, monitor settle/disputes) · `/verify/[id]` (anyone can check the Merkle root).
 
-UX: mọi giao dịch có trạng thái rõ ràng (đang ký → đang xác nhận → xong) và link Snowtrace. Lỗi được dịch sang tiếng người. Kiểm tra mạng sai, thiếu gas, thiếu USDC kèm hướng dẫn xin faucet.
+UX: every transaction has clear states (signing → confirming → done) and a Snowtrace link. Errors are translated into plain language. Checks for wrong network, missing gas and missing USDC, with faucet guidance.
 
-## 7. Điểm cộng Avalanche Integration
-1. Contract **verified trên Snowtrace**, cả 3 contract.
-2. **Privy embedded wallet + faucet gas tự động** cho người dùng không biết crypto.
-3. **USDC Fuji của Circle + EIP-2612 permit**: một giao dịch là xong.
-4. **ERC-4626 yield + adapter Aave v3 cho C-Chain mainnet**: kiến trúc sẵn sàng chạy thật.
-5. **SBT với SVG on-chain**: hồ sơ học tập mà sinh viên tự sở hữu.
-6. *(Stretch)* **x402 "Study Reputation API"**: app khác trả 0.001 USDC để truy vấn streak của một ví.
-7. *(Stretch/lộ trình)* **StudyNet L1** riêng cho trường qua Builder Console, kèm ICM để mang badge sang C-Chain.
+## 7. Avalanche Integration points
+1. Contracts **verified on Snowtrace**, all 3 of them.
+2. **Privy embedded wallet + automatic gas faucet** for users who do not know crypto.
+3. **Circle's Fuji USDC + EIP-2612 permit**: one transaction and done.
+4. **ERC-4626 yield + Aave v3 adapter for C-Chain mainnet**: an architecture ready to run for real.
+5. **SBT with on-chain SVG**: a study record students own.
+6. *(Stretch)* **x402 "Study Reputation API"**: other apps pay 0.001 USDC to query a wallet's streak.
+7. *(Stretch/roadmap)* A dedicated **StudyNet L1** for schools via Builder Console, with ICM to carry badges over to C-Chain.
 
-## 8. Những gì nằm ngoài phạm vi MVP (ghi rõ trong pitch)
-- Lãi thật: chỉ có trên mainnet qua Aave adapter.
-- Oracle phi tập trung: lộ trình là zkTLS (Reclaim/TLSNotary) để chứng minh dữ liệu Moodle mà không cần đưa token, hoặc plugin Moodle do trường chạy làm oracle.
-- Kháng nghị không cần guardian: lộ trình là đa oracle hoặc bỏ phiếu.
+## 8. Out of MVP scope (stated in the pitch)
+- Real yield: only on mainnet through the Aave adapter.
+- Decentralized oracle: the roadmap is zkTLS (Reclaim/TLSNotary) to prove Moodle data without handing over a token, or a Moodle plugin run by the school as the oracle.
+- Guardian-free appeals: the roadmap is multi-oracle or voting.
 
-## 9. Kế hoạch và tiêu chí xong (Definition of Done)
+## 9. Plan and Definition of Done
 
-| Phase | Nội dung | Xong khi | Hạn |
+| Phase | Content | Done when | Due |
 |---|---|---|---|
-| 0 | Spec + threat model | Đội duyệt | 3/11 |
-| 1 | Contracts | Unit test + fuzz + invariant xanh; Slither không còn lỗi high/medium; coverage ≥ 95% | 7/11 |
-| 2 | Oracle | Test adapter Moodle với dữ liệu thật (token của Thuận); Demo LMS chạy; settle trên Anvil | 9/11 |
-| 3 | Web | Toàn bộ luồng chạy được trên Anvil local; dùng tốt ở mobile 375px | 13/11 |
-| 4 | Fuji | Deploy + verify; chạy E2E bằng Playwright trên Fuji; review toàn bộ lần cuối | 16/11 |
-| 5 | Người dùng + nộp bài | ≥ 20 người dùng thật; slide; video 2–3 phút; repo public/README | 21/11 |
+| 0 | Spec + threat model | Team approved | 3/11 |
+| 1 | Contracts | Unit + fuzz + invariant tests green; Slither has no high/medium findings; coverage ≥ 95% | 7/11 |
+| 2 | Oracle | Moodle adapter tested with real data (Thuận's token); Demo LMS works; settle on Anvil | 9/11 |
+| 3 | Web | Full flow works on local Anvil; usable on 375px mobile | 13/11 |
+| 4 | Fuji | Deploy + verify; Playwright E2E on Fuji; final full review | 16/11 |
+| 5 | Users + submission | ≥ 20 real users; slides; 2–3 minute video; public repo/README | 21/11 |
 
-Các agent Haiku làm phần code. Lead (Opus) viết spec, review từng PR theo threat model và tự chạy lại test để kiểm tra.
+Haiku agents write the code. The lead (Opus) writes the spec, reviews each PR against the threat model and reruns the tests to check.

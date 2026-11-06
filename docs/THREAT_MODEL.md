@@ -1,52 +1,56 @@
 # StudyStake — Threat model v0.1
 
-Mục tiêu: liệt kê **mọi cách** có thể phá hoặc gian lận hệ thống, kèm cách chặn. Phần nào chưa chặn được thì ghi thẳng ra, vì giám khảo hỏi thì đội phải trả lời được.
+Goal: list **every way** the system could be broken or cheated, and how each is blocked. Anything not yet blocked is stated plainly, because the team must be able to answer when judges ask.
 
-**Bảo đảm cốt lõi:** *Dù oracle, creator, guardian hay admin bị hack, gốc của người dùng vẫn rút được*, trừ trường hợp chính vault sinh lãi bị lỗ.
+**Core guarantee:** *Even if the oracle, creator, guardian or admin is hacked, users can still withdraw their principal*, except when the yield vault itself takes a loss.
 
-## A. Tấn công vào tiền (smart contract)
+## A. Attacks on money (smart contracts)
 
-| # | Mối đe dọa | Cách chặn | Còn lại |
+| # | Threat | Mitigation | Residual |
 |---|---|---|---|
-| A1 | Reentrancy khi claim/finalize | `nonReentrant` + CEI; đánh dấu đã claim trước khi chuyển tiền | — |
-| A2 | Claim 2 lần | `claimed[id][account]` | — |
-| A3 | Proof giả / dùng lại proof của challenge, chain hay contract khác | Leaf băm 2 lần, chứa `chain_id, manager, id, account, stake`; stake trong leaf phải khớp stake on-chain | — |
-| A4 | Oracle khai sai `completed_stake` để chia thưởng lệch | Thưởng bị cap bởi `R − paid`, nên không lấn vào gốc; có cửa sổ khiếu nại + bằng chứng công khai | Người claim sau có thể nhận ít thưởng hơn nếu oracle sai và không ai khiếu nại |
-| A5 | Inflation/donation attack vào vault ERC-4626 | OpenZeppelin `_decimalsOffset`; Manager tự giữ share của từng challenge, không dùng `balanceOf` để tính | — |
-| A6 | Token độc (fee-on-transfer, rebasing, có hook) | Allowlist token/vault do admin quản lý | — |
-| A7 | Admin rút tiền | Không có hàm nào rút gốc. `sweep_rewards` chỉ lấy phần thưởng chưa nhận sau 180 ngày | Admin có thể allowlist một vault độc cho challenge **mới** → UI hiển thị địa chỉ vault, chỉ creator tin cậy được tạo challenge |
-| A8 | Pause để giam tiền | Pause chỉ chặn `join`/`settle`; `claim`/`expire` luôn chạy được | — |
-| A9 | Oracle không bao giờ settle (chết hoặc bị kiểm duyệt) | Quá `end_time + settle_grace` thì ai cũng gọi `expire` được → mọi người nhận gốc + lãi | — |
-| A10 | Front-run `settle`/`finalize` | Chỉ ORACLE gọi được `settle`; `finalize` ai gọi cũng cho cùng kết quả | — |
-| A11 | Làm tròn số tạo bụi hoặc làm hỏng bất biến | Làm tròn xuống có lợi cho contract; bụi về treasury khi sweep; fuzz kiểm bất biến | — |
-| A12 | DoS do vòng lặp không giới hạn | Không lặp qua danh sách participant on-chain; claim là kéo (pull) từng người | — |
-| A13 | Vault lỗ hoặc bị hack | Chia lỗ đều theo tỉ lệ cọc; ghi rõ trong UI/README | **Rủi ro thật**, no-loss phụ thuộc nguồn lãi |
-| A14 | Sponsor nạp sau khi đã biết kết quả | `sponsor` chỉ được trước `end_time` | — |
-| A16 | Người không hoàn thành bóp gas để lần cập nhật badge (reset streak) thất bại âm thầm, giữ streak giả | Gọi badge với gas cố định + kiểm `gasleft()` trước, thiếu gas thì revert cả claim (R1) | — |
-| A17 | Treasury bị blacklist USDC làm `finalize` revert, gốc kẹt | `finalize` không đẩy tiền; lãi treasury rút riêng qua `collect_treasury` (R2) | — |
-| A18 | Khiếu nại vô cớ, guardian vắng mặt, `expire` chia lãi cho cả người không hoàn thành | Hết timeout khiếu nại thì `finalize` với settlement cũ, không expire (R3) | Oracle sai mà guardian vắng thì thưởng theo oracle; gốc vẫn an toàn |
-| A15 | Join sát hạn khi đã biết mình sẽ hoàn thành | `join_deadline` nằm trước giai đoạn làm bài; thưởng chia theo cọc nên vào muộn không có lợi thêm | Người đã nộp bài trước khi join → chỉ tính bài nộp **sau** khi join (`timefinish ≥ joined_at`) |
+| A1 | Reentrancy on claim/finalize | `nonReentrant` + CEI; marked as claimed before transferring | — |
+| A2 | Claiming twice | `claimed[id][account]` | — |
+| A3 | Forged proof / reusing a proof from another challenge, chain or contract | Leaf hashed twice, contains `chain_id, manager, id, account, stake`; the stake in the leaf must match the on-chain stake | — |
+| A4 | Oracle misreports `completed_stake` to skew rewards | Rewards capped by `R − paid`, so they cannot eat into principal; dispute window + public evidence | Later claimers may receive less reward if the oracle is wrong and nobody disputes |
+| A5 | Inflation/donation attack on the ERC-4626 vault | OpenZeppelin `_decimalsOffset`; the Manager tracks shares per challenge and does not use `balanceOf` for accounting | — |
+| A6 | Malicious tokens (fee-on-transfer, rebasing, hooks) | Token/vault allowlist managed by admin | — |
+| A7 | Admin withdraws funds | No function withdraws principal. `sweep_rewards` only takes unclaimed rewards after 180 days | Admin could allowlist a malicious vault for **new** challenges → the UI shows the vault address, only trusted creators can create challenges |
+| A8 | Pausing to trap funds | Pause only blocks `join`/`settle`; `claim`/`expire` always work | — |
+| A9 | Oracle never settles (dead or censored) | After `end_time + settle_grace` anyone can call `expire` → everyone receives principal + yield | — |
+| A10 | Front-running `settle`/`finalize` | Only ORACLE can call `settle`; `finalize` gives the same result whoever calls it | — |
+| A11 | Rounding creates dust or breaks invariants | Round down in the contract's favor; dust goes to the treasury on sweep; fuzz checks invariants | — |
+| A12 | DoS through unbounded loops | No on-chain loop over participants; claim is pull-based per user | — |
+| A13 | Vault takes a loss or gets hacked | Loss shared pro rata to stake; stated clearly in the UI/README | **Real risk**, no-loss depends on the yield source |
+| A14 | Sponsor funds after knowing the result | `sponsor` only before `end_time` | — |
+| A16 | A non-completer limits gas so the badge update (streak reset) silently fails, keeping a fake streak | Call the badge with fixed gas + check `gasleft()` first, revert the whole claim if there is not enough gas (R1) | — |
+| A17 | Treasury blacklisted by USDC makes `finalize` revert, trapping principal | `finalize` does not push funds; treasury yield is collected separately through `collect_treasury` (R2) | — |
+| A18 | Frivolous dispute, absent guardian, `expire` shares yield with non-completers too | After the dispute timeout, `finalize` with the existing settlement, no expire (R3) | If the oracle is wrong and the guardian is absent, rewards follow the oracle; principal stays safe |
+| A15 | Joining right before the deadline when already certain of completing | `join_deadline` is before the work period; rewards are pro rata to stake so joining late brings no extra benefit | Someone who submitted before joining → only submissions **after** joining count (`timefinish ≥ joined_at`) |
 
-## B. Gian lận việc học (oracle / Moodle)
+## B. Study fraud (oracle / Moodle)
 
-| # | Mối đe dọa | Cách chặn | Còn lại |
+| # | Threat | Mitigation | Residual |
 |---|---|---|---|
-| B1 | Dùng Moodle của bạn chăm học để "hoàn thành" thay | Ràng buộc `(site,userid) ↔ ví` 1-1, chỉ hiển thị liên kết đầu tiên | **Không chặn được** nếu 2 người thông đồng đưa token cho nhau, nhưng làm vậy chỉ được lãi nhỏ, không có lợi về kinh tế |
-| B2 | Nộp bài rỗng cho đủ | Có thể đặt `min_grade` cho từng challenge | Moodle không đo được chất lượng học |
-| B3 | Một người tạo nhiều ví (sybil) | Thưởng chia theo cọc, nên chia nhỏ ra không có lợi; 1 Moodle chỉ gắn 1 ví | — |
-| B4 | Oracle bị hack hoặc khai sai | Bằng chứng công khai (R2 + hash on-chain), trang `/verify` tự kiểm, có khiếu nại + guardian. Oracle không động được vào gốc | Thưởng phụ thuộc oracle trung thực. Lộ trình: zkTLS / plugin Moodle do trường chạy |
-| B5 | Lộ Moodle token (token có toàn quyền tài khoản) | Mã hóa AES-GCM khi lưu, khóa nằm trong secret của Worker; chỉ gọi các API đọc; xóa sau khi settle; người dùng có thể thu hồi token trên Moodle | **Rủi ro lớn nhất về quyền riêng tư** → ghi rõ ở màn hình đồng ý; lộ trình zkTLS |
-| B6 | Thay đổi giờ hoặc deadline trên Moodle | Dùng `min(duedate, end_time)` chốt sẵn trong metadata (hash on-chain) | Giáo viên gia hạn thì sinh viên không được hưởng |
-| B7 | Moodle sập lúc settle | Cron thử lại; `settle_grace` 3 ngày; cuối cùng vẫn có `expire` | — |
+| B1 | Using a diligent friend's Moodle to "complete" | `(site,userid) ↔ wallet` bound 1-1, only the first link counts | **Cannot be blocked** if 2 people collude and share tokens, but that only earns a small yield, so it makes no economic sense |
+| B2 | Submitting empty work to tick the box | `min_grade` can be set per challenge | Moodle cannot measure study quality |
+| B3 | One person creates many wallets (sybil) | Rewards are pro rata to stake, so splitting brings no benefit; one Moodle binds to only one wallet | — |
+| B4 | Oracle hacked or misreporting | Public evidence (R2 + on-chain hash), the `/verify` page for self-checking, disputes + guardian. The oracle cannot touch principal | Rewards depend on an honest oracle. Roadmap: zkTLS / a Moodle plugin run by the school |
+| B5 | Moodle token leak (the token has full account access) | AES-GCM encrypted at rest, key in a Worker secret; only read APIs are called; deleted after settle; users can revoke the token in Moodle | **Largest privacy risk** → stated on the consent screen; roadmap: zkTLS |
+| B6 | Changing times or deadlines in Moodle | Uses `min(duedate, end_time)` fixed in the metadata (hash on-chain) | If a teacher extends the deadline, students do not benefit |
+| B7 | Moodle down at settle time | Cron retries; `settle_grace` of 3 days; `expire` as the last resort | — |
 
-## C. Web, tài khoản và vận hành
+## C. Web, accounts and operations
 
-| # | Mối đe dọa | Cách chặn |
+| # | Threat | Mitigation |
 |---|---|---|
-| C1 | Rút cạn faucet gas | Giới hạn theo Privy user + địa chỉ + IP, có Turnstile, hạn mức mỗi ngày, ví nóng chỉ giữ ít AVAX |
-| C2 | Giả JWT khi gọi oracle | Kiểm JWT của Privy bằng JWKS, kiểm `aud`/`iss`/`exp` |
-| C3 | Lộ khóa oracle | Lưu trong secret của Worker, ví riêng chỉ có role ORACLE; admin thu hồi role được ngay |
-| C4 | Phishing hoặc giao dịch lạ | UI decode và hiển thị số tiền, contract; chỉ dùng địa chỉ cứng đã verify |
-| C5 | XSS, injection vào metadata | Metadata hiển thị dạng text, CSP chặt, không render HTML từ người dùng |
-| C6 | Bằng chứng làm lộ danh tính | JSON chỉ chứa ví + hash(site,userid) + trạng thái, không có tên hay MSSV |
-| C7 | Khóa admin là EOA | Demo dùng EOA; lộ trình là multisig (Safe trên C-Chain) + timelock |
+| C1 | Draining the gas faucet | Limits per Privy user + address + IP, Turnstile, daily cap, hot wallet holds little AVAX |
+| C2 | Forged JWT when calling the oracle | Verify the Privy JWT with JWKS, check `aud`/`iss`/`exp` |
+| C3 | Oracle key leak | Stored in a Worker secret, a separate wallet with only the ORACLE role; admin can revoke the role immediately |
+| C4 | Phishing or unexpected transactions | The UI decodes and shows the amount and contract; only hardcoded, verified addresses |
+| C5 | XSS, injection through metadata | Metadata rendered as text, strict CSP, no HTML rendered from users |
+| C6 | Evidence reveals identity | JSON contains only wallet + hash(site,userid) + status, no names or student IDs |
+| C7 | Admin key is an EOA | The demo uses an EOA; the roadmap is a multisig (Safe on C-Chain) + timelock |
+
+## D. x402 Study Credential
+
+See [`X402.md`](X402.md), section "Threats".

@@ -1,44 +1,44 @@
 # StudyStake — Web spec (Phase 3)
 
-Nguồn chuẩn cho `web/`. Khi mâu thuẫn với SPEC.md §6 thì file này thắng.
+Source of truth for `web/`. When in conflict with SPEC.md §6, this file wins.
 
 ## Stack
-- Next.js 15 App Router, TypeScript strict, Tailwind v4. Không cần backend riêng: web gọi thẳng contract (viem/wagmi) và oracle Worker (REST).
-- `@privy-io/react-auth` (login Google/email, có embedded wallet) + `@privy-io/wagmi` + `wagmi` v2 + `viem` + `@tanstack/react-query`. Người dùng vẫn dùng được ví ngoài (Core, MetaMask).
-- Chain: Fuji (43113) và Anvil (31337), chọn qua env `NEXT_PUBLIC_CHAIN_ID`. Địa chỉ contract đọc từ `contracts/deployments/<chain_id>.json`: script `scripts/sync_deployments.mjs` copy file này sang `web/src/generated/deployments.json` và sinh ABI vào `web/src/generated/abi.ts`.
-- Env: `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ORACLE_URL`, `NEXT_PUBLIC_EXPLORER_URL` (mặc định `https://testnet.snowtrace.io`). Nếu không có Privy App ID thì **tự chuyển sang chế độ chỉ dùng ví ngoài** (wagmi injected), để chạy local và test E2E không cần Privy.
-- Đặt tên: hàm, biến, field tự định nghĩa dùng `snake_case`. Component dùng PascalCase; hook giữ dạng `useXxx` theo quy ước React.
+- Next.js 15 App Router, strict TypeScript, Tailwind v4. No separate backend: the web calls contracts directly (viem/wagmi) and the oracle Worker (REST).
+- `@privy-io/react-auth` (Google/email login with an embedded wallet) + `@privy-io/wagmi` + `wagmi` v2 + `viem` + `@tanstack/react-query`. Users can still use external wallets (Core, MetaMask).
+- Chain: Fuji (43113) and Anvil (31337), selected through the `NEXT_PUBLIC_CHAIN_ID` env. Contract addresses are read from `contracts/deployments/<chain_id>.json`: the `scripts/sync_deployments.mjs` script copies this file to `web/src/generated/deployments.json` and generates the ABI into `web/src/generated/abi.ts`.
+- Env: `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_ORACLE_URL`, `NEXT_PUBLIC_EXPLORER_URL` (defaults to `https://testnet.snowtrace.io`). Without a Privy App ID it **automatically switches to external wallets only** (wagmi injected), so local runs and E2E tests need no Privy.
+- Naming: self-defined functions, variables and fields use `snake_case`. Components use PascalCase; hooks stay `useXxx` following the React convention.
 
-## Thiết kế
-- Dark mode mặc định, **nền đen tuyền `#000`** (không dùng xám đậm), card `#0a0a0a`, viền `#1f1f1f`. Màu nhấn đỏ Avalanche `#E84142`, màu xanh lá `#22c55e` cho trạng thái "hoàn thành". Có light mode qua toggle.
-- Font Be Vietnam Pro (Google Fonts) cho chữ tiếng Việt, số dùng `tabular-nums`.
-- Song ngữ vi/en (mặc định vi), dùng một file dictionary đơn giản, không cần thư viện i18n nặng.
-- Mobile-first, không có thanh cuộn ngang ở 375px, vùng chạm tối thiểu 44px.
-- Logo Google/Core/MetaMask dùng **SVG logo chính thức**, không dùng icon thay thế.
+## Design
+- Dark mode by default, **pure black background `#000`** (no dark gray), card `#0a0a0a`, border `#1f1f1f`. Avalanche red accent `#E84142`, green `#22c55e` for the "completed" state. Light mode through a toggle.
+- Be Vietnam Pro font (Google Fonts) for Vietnamese text, numbers use `tabular-nums`.
+- Bilingual vi/en (vi by default), using one simple dictionary file, no heavy i18n library.
+- Mobile-first, no horizontal scrollbar at 375px, 44px minimum touch targets.
+- Google/Core/MetaMask logos use the **official SVG logos**, no substitute icons.
 
-## Trang
-1. `/`: landing. Hero ("Cam kết học, không mất gốc"), 3 bước hoạt động, số liệu on-chain thật (tổng USDC đang cọc, số challenge, số người hoàn thành) đọc từ contract/events, nút "Bắt đầu".
-2. `/challenges`: danh sách challenge (đọc `challenge_count` + `get_challenge` + metadata từ oracle). Có lọc theo phase, mỗi card hiện tên, môn, tổng cọc, số người, đếm ngược, phase badge.
+## Pages
+1. `/`: landing. Hero ("Cam kết học, không mất gốc", i.e. "Commit to studying, never lose your principal"), 3 how-it-works steps, real on-chain figures (total USDC staked, number of challenges, number of completers) read from contracts/events, a "Get started" button.
+2. `/challenges`: challenge list (reads `challenge_count` + `get_challenge` + metadata from the oracle). Filter by phase; each card shows the name, course, total stake, number of people, countdown and phase badge.
 3. `/challenges/[id]`:
-   - Thông tin: hoạt động và hạn, khoảng cọc, tổng cọc, quỹ thưởng (bonus + lãi ước tính từ `vault.convertToAssets`), địa chỉ vault/token có link explorer.
-   - **Join:** nhập số tiền (min/max), hiện số dư USDC. Nếu token hỗ trợ permit thì ký permit rồi gửi `join_with_permit` (1 giao dịch), không thì `approve` + `join`. Có nút xin tUSDC (`faucet()`) khi dùng tUSDC.
-   - **Tiến độ:** `GET /progress/:id/:wallet`, mỗi hoạt động có trạng thái ✓/✗ và thời gian nộp. Challenge demo có nút "Làm bài demo" (ký message rồi gọi `POST /demo/submit`).
-   - **Sau kết thúc:** phase badge, link bằng chứng (`/verify/[id]`). Trong dispute window có nút khiếu nại (nhập lý do, gửi `keccak` lên `dispute`).
-   - **Claim:** `preview_claim` hiển thị gốc và thưởng. Lấy proof từ `GET /proof/:id/:account`, gửi `claim(id, completed, proof)` với `gas` ước lượng cộng biên (lưu ý `InsufficientGas`). Nút finalize/expire hiện khi phase là `Finalizable`/`Expirable` (ai cũng bấm được).
-4. `/me`: các khoản cọc (quét event `Joined` của ví), trạng thái từng khoản, claim nhanh, badge (đọc `tokenURI`, render SVG on-chain), streak, liên kết LMS hiện tại.
-5. `/link`: liên kết Moodle (hướng dẫn lấy token, màn hình **đồng ý** giải thích rủi ro token và cách thu hồi), ký message `link_message` y hệt oracle. Có tùy chọn Demo LMS. Có nút hủy liên kết.
-6. `/verify/[id]`: tải evidence, tự tính lại `keccak(canonical_json)` ngay trong browser và so với `evidence_hash` on-chain, tự dựng lại root từ `tree` và so với `root` on-chain, hiện bảng participant (ví rút gọn, completed, reason). Ai cũng tự kiểm được mà không cần tin oracle.
-7. `/admin` (chỉ hiện khi ví có `CREATOR_ROLE`/`GUARDIAN_ROLE`): form tạo challenge (metadata → `POST /metadata` có ký → `create_challenge`), sponsor, pause/unpause, resolve dispute.
+   - Info: activities and deadlines, stake range, total stake, reward pool (bonus + yield estimated from `vault.convertToAssets`), vault/token addresses with explorer links.
+   - **Join:** enter an amount (min/max), shows the USDC balance. If the token supports permit, sign a permit then send `join_with_permit` (1 transaction), otherwise `approve` + `join`. A button to get tUSDC (`faucet()`) when using tUSDC.
+   - **Progress:** `GET /progress/:id/:wallet`, each activity has a ✓/✗ state and a submission time. Demo challenges have a "Submit demo" button (signs a message then calls `POST /demo/submit`).
+   - **After the end:** phase badge, evidence link (`/verify/[id]`). During the dispute window there is a dispute button (enter a reason, send its `keccak` to `dispute`).
+   - **Claim:** `preview_claim` shows principal and reward. Gets the proof from `GET /proof/:id/:account`, sends `claim(id, completed, proof)` with estimated `gas` plus a margin (mind `InsufficientGas`). Finalize/expire buttons appear when the phase is `Finalizable`/`Expirable` (anyone can press them).
+4. `/me`: stakes (scans the wallet's `Joined` events), the state of each stake, quick claim, badge (reads `tokenURI`, renders the on-chain SVG), streak, current LMS link.
+5. `/link`: Moodle link (guide to getting the token, a **consent** screen explaining the token risk and how to revoke it), signs a `link_message` identical to the oracle's. Demo LMS option. An unlink button.
+6. `/verify/[id]`: loads the evidence, recomputes `keccak(canonical_json)` in the browser and compares it with the on-chain `evidence_hash`, rebuilds the root from `tree` and compares it with the on-chain `root`, shows a participant table (shortened wallet, completed, reason). Anyone can check without trusting the oracle.
+7. `/admin` (only shown when the wallet has `CREATOR_ROLE`/`GUARDIAN_ROLE`): challenge creation form (metadata → signed `POST /metadata` → `create_challenge`), sponsor, pause/unpause, resolve dispute.
 
-## UX giao dịch (bắt buộc)
-- Một hook `use_tx` chung, đi qua các trạng thái: `idle → signing → pending (hash + link explorer) → confirmed | error`. Dùng `simulateContract` trước khi gửi để bắt lỗi sớm.
-- Map custom error của contract (decode bằng ABI) sang câu tiếng Việt dễ hiểu, ví dụ `TooLate` → "Đã quá hạn tham gia".
-- Kiểm tra trước: sai mạng thì có nút chuyển mạng; thiếu AVAX gas thì có nút xin gas (oracle `/faucet` với Privy JWT, hoặc link faucet); thiếu USDC thì có link faucet.
-- Sau khi giao dịch confirmed, invalidate các query liên quan.
-- Mọi chuỗi từ metadata/evidence hiển thị dạng text thuần (không dùng `dangerouslySetInnerHTML`). Riêng SVG của badge render qua `<img src="data:...">`.
+## Transaction UX (mandatory)
+- One shared `use_tx` hook, with these states: `idle → signing → pending (hash + explorer link) → confirmed | error`. Uses `simulateContract` before sending to catch errors early.
+- Maps contract custom errors (decoded with the ABI) to plain Vietnamese sentences, for example `TooLate` → "Đã quá hạn tham gia" ("The join deadline has passed").
+- Pre-checks: wrong network shows a switch button; missing AVAX gas shows a gas button (oracle `/faucet` with the Privy JWT, or a faucet link); missing USDC shows a faucet link.
+- After a transaction is confirmed, invalidate related queries.
+- All strings from metadata/evidence render as plain text (no `dangerouslySetInnerHTML`). The badge SVG alone renders through `<img src="data:...">`.
 
-## Kiểm thử (Definition of Done)
-- `npx tsc --noEmit`, `npm run lint`, `npm run build` đều qua.
-- Unit test bằng vitest: map lỗi, `canonical_json` (phải cho kết quả giống hệt bản của oracle, test bằng cùng fixture), verify evidence, format số USDC.
-- **E2E bằng Playwright trên Anvil** (`npm run e2e`): khởi động anvil, deploy, chạy oracle bằng `wrangler dev --local` (hoặc gọi module oracle thông qua một server Node nhỏ), web `next start`. Dùng ví inject (EIP-1193 provider giả, ký bằng private key Anvil) để join, nộp demo, tua thời gian, cron settle (gọi endpoint test của oracle hoặc chạy job), finalize, claim. Kiểm tra số dư hiển thị và badge.
-- Chụp screenshot từng trang ở 375px và 1280px, cả dark và light, lưu vào `web/screenshots/`.
+## Testing (Definition of Done)
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` all pass.
+- Unit tests with vitest: error mapping, `canonical_json` (must give results identical to the oracle's, tested with the same fixture), evidence verification, USDC number formatting.
+- **Playwright E2E on Anvil** (`npm run e2e`): starts anvil, deploys, runs the oracle with `wrangler dev --local` (or calls the oracle module through a small Node server), web `next start`. Uses an injected wallet (a fake EIP-1193 provider signing with an Anvil private key) to join, submit demos, advance time, run cron settle (call the oracle test endpoint or run the job), finalize, claim. Checks displayed balances and the badge.
+- Screenshot each page at 375px and 1280px, both dark and light, saved in `web/screenshots/`.

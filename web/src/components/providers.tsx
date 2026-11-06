@@ -31,7 +31,7 @@ function write_pref(key: string, value: string): void {
 
 // wagmi types require a transport for every chain in the union. Only the active chain is used at runtime.
 const transports = {
-  43113: http('https://api.avax-test.network/ext/bc/C/rpc'),
+  43113: http(RPC_URL),
   31337: http(RPC_URL),
 } as const;
 

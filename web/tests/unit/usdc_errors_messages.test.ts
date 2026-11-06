@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { format_usdc, parse_usdc } from '@/lib/usdc';
 import { explain_error, error_name } from '@/lib/errors';
-import { demo_submit_message, link_message, metadata_message, unlink_message } from '@/lib/messages';
+import { consent_message, demo_submit_message, link_message, metadata_message, unlink_message } from '@/lib/messages';
 
 describe('format_usdc', () => {
   it('formats base units with 6 decimals', () => {
@@ -52,6 +52,11 @@ describe('signed message formats (must match oracle)', () => {
     expect(link_message('0xABCDEF0000000000000000000000000000000001', 'demo', 'demo', 1700000000)).toBe(
       'StudyStake link\nwallet: 0xabcdef0000000000000000000000000000000001\nlms: demo\nsite: demo\nissued_at: 1700000000',
     );
+  });
+  it('consent message', () => {
+    const w = '0x00000000000000000000000000000000000000AA';
+    expect(consent_message(w, true, 7)).toBe(`StudyStake credential consent\nwallet: ${w.toLowerCase()}\nshare: true\nissued_at: 7`);
+    expect(consent_message(w, false, 7)).toBe(`StudyStake credential consent\nwallet: ${w.toLowerCase()}\nshare: false\nissued_at: 7`);
   });
   it('unlink, demo submit and metadata messages', () => {
     const w = '0x00000000000000000000000000000000000000AA';

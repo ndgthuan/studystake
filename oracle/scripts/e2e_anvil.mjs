@@ -6,11 +6,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createWalletClient, http, keccak256, parseAbi, toBytes, maxUint256 } from 'viem';
+import { createWalletClient, http, keccak256, parseAbi, recoverTypedDataAddress, toBytes, maxUint256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { manager_abi } from '../src/abi/manager.ts';
 import { build_chain, chain_for, STATUS } from '../src/chain.ts';
 import { canonical_json } from '../src/canonical.ts';
+import { credential_typed_data, issue_credential } from '../src/credential.ts';
 import { decrypt_token } from '../src/crypto.ts';
 import { record_demo_submission, create_demo_adapter } from '../src/lms/demo.ts';
 import { metadata_hash, metadata_key } from '../src/metadata.ts';
@@ -356,6 +357,24 @@ async function run_scenario(dep) {
   expect_eq(await public_client.readContract({ address: badge, abi: BADGE_ABI, functionName: 'balanceOf', args: [p.p1.address] }), 1n, 'p1 badge minted');
   expect_eq(await public_client.readContract({ address: badge, abi: BADGE_ABI, functionName: 'balanceOf', args: [p.p2.address] }), 1n, 'p2 badge minted');
   expect_eq(await public_client.readContract({ address: badge, abi: BADGE_ABI, functionName: 'balanceOf', args: [p.p3.address] }), 0n, 'p3 no badge');
+
+  // Credential: stats come from the real StudyBadge, and the signer is checked the way a buyer checks it.
+  const p1_stats = await port.badge_stats(p.p1.address);
+  expect_eq(p1_stats.streak, 1, 'p1 credential streak');
+  expect_eq(p1_stats.total_completed, 1, 'p1 credential total_completed');
+  expect_eq((await port.badge_stats(p.p3.address)).total_completed, 0, 'p3 credential stats are zero without a badge');
+  const signed = await issue_credential({
+    link: { wallet: p.p1.address.toLowerCase(), lms: 'demo', site: 'demo', userid: null, subject_hash: demo_subject_hash(p.p1.address), token_enc: null },
+    stats: p1_stats,
+    now_seconds: Math.floor(Date.now() / 1000),
+    chain_id: CHAIN_ID,
+    manager: dep.manager,
+    oracle_private_key: KEYS.oracle,
+  });
+  const typed = credential_typed_data(signed.credential, signed.domain.chain_id, signed.domain.verifying_contract);
+  const recovered = await recoverTypedDataAddress({ ...typed, signature: signed.signature });
+  const oracle_role = await public_client.readContract({ address: dep.manager, abi: manager_abi, functionName: 'ORACLE_ROLE' });
+  expect_eq(await public_client.readContract({ address: dep.manager, abi: manager_abi, functionName: 'hasRole', args: [oracle_role, recovered] }), true, 'credential signer holds ORACLE_ROLE');
 
   console.log(`  manager: ${dep.manager}, oracle: ${oracle_address}, evidence key: ${evidence_key(CHAIN_ID, challenge_id, ch.evidence_hash)}`);
 }

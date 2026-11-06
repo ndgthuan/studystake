@@ -238,7 +238,7 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
         uint64 dispute_window,
         bytes32 metadata_hash,
         string calldata metadata_uri
-    ) external onlyRole(CREATOR_ROLE) whenNotPaused returns (uint256 id) {
+    ) external onlyRole(CREATOR_ROLE) whenNotPaused nonReentrant returns (uint256 id) {
         _check_tokens(token, vault);
         _check_params(min_stake, max_stake, join_deadline, end_time, settle_grace, dispute_window);
 
@@ -327,6 +327,8 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
     /// @param v Permit signature v.
     /// @param r Permit signature r.
     /// @param s Permit signature s.
+    // Read-only reentrancy through view functions only; accepted, see docs/CONTRACTS.md#slither.
+    // slither-disable-next-line reentrancy-no-eth,reentrancy-benign
     function join_with_permit(uint256 id, uint128 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
         external
         whenNotPaused
@@ -348,6 +350,7 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
         external
         onlyRole(ORACLE_ROLE)
         whenNotPaused
+        nonReentrant
     {
         Challenge storage c = challenges[id];
         if (c.status != Status.Open) revert WrongStatus();
@@ -361,7 +364,7 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
     /// @notice Disputes the settlement. Participants only, within dispute_window, once per address.
     /// @param id Challenge id.
     /// @param reason_hash Hash of the dispute reason.
-    function dispute(uint256 id, bytes32 reason_hash) external {
+    function dispute(uint256 id, bytes32 reason_hash) external nonReentrant {
         Challenge storage c = challenges[id];
         if (c.status != Status.Settled) revert WrongStatus();
         if (block.timestamp >= uint256(c.settled_at) + c.dispute_window) revert TooLate();
@@ -387,7 +390,7 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
         uint32 completed_count,
         uint128 completed_stake,
         bytes32 evidence_hash
-    ) external onlyRole(GUARDIAN_ROLE) {
+    ) external onlyRole(GUARDIAN_ROLE) nonReentrant {
         Challenge storage c = challenges[id];
         if (c.status != Status.Disputed) revert WrongStatus();
         if (block.timestamp >= uint256(c.disputed_at) + DISPUTE_TIMEOUT) revert TooLate();
@@ -401,6 +404,8 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
     ///      challenge finalizes on the settlement currently stored, which is the original one if no resolve_dispute ran.
     ///      Transfers nothing to the treasury. Yield without completers is recorded in treasury_due for collect_treasury.
     /// @param id Challenge id.
+    // Read-only reentrancy through view functions only; accepted, see docs/CONTRACTS.md#slither.
+    // slither-disable-next-line reentrancy-no-eth
     function finalize(uint256 id) external nonReentrant {
         Challenge storage c = challenges[id];
         Status st = c.status;
@@ -449,6 +454,8 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
     /// @notice Expires a challenge the oracle did not settle in time. Anyone. Principal plus pro-rata yield is
     ///         returned, and no rewards are paid. Not applicable to Disputed challenges, which finalize instead.
     /// @param id Challenge id.
+    // Read-only reentrancy through view functions only; accepted, see docs/CONTRACTS.md#slither.
+    // slither-disable-next-line reentrancy-no-eth
     function expire(uint256 id) external nonReentrant {
         Challenge storage c = challenges[id];
         if (c.status != Status.Open) revert WrongStatus();
@@ -598,6 +605,8 @@ contract StudyStakeManager is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /// @dev Records the stake, pulls tokens, and deposits into the vault. Assumes _check_join passed.
+    // Read-only reentrancy through view functions only; accepted, see docs/CONTRACTS.md#slither.
+    // slither-disable-next-line reentrancy-no-eth
     function _execute_join(uint256 id, uint128 amount) internal {
         Challenge storage c = challenges[id];
         uint64 joined_time = SafeCast.toUint64(block.timestamp);

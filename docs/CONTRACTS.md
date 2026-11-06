@@ -181,3 +181,36 @@ Redeems everything like finalize. `reward_pot = 0`. status Expired, `finalized_a
 - Deploys TestUSDC (always, as a backup), MockYieldVault for tUSDC, and if `USE_CIRCLE_USDC` another MockYieldVault for Circle USDC. Deploys StudyBadge, StudyStakeManager. Grants `MANAGER_ROLE` to the manager, `ORACLE_ROLE` to the oracle, `CREATOR_ROLE` + `GUARDIAN_ROLE` to the deployer. Allows the token/vault.
 - Writes addresses to `deployments/<chainid>.json` (using `vm.writeJson`), read by web/oracle.
 - Runs on Anvil (`--rpc-url http://127.0.0.1:8545`) and Fuji (`https://api.avax-test.network/ext/bc/C/rpc`, chainid 43113).
+
+## Slither
+
+Static analysis with Slither 0.11.6 (solc 0.8.28), run from `contracts/`:
+
+```bash
+python -m slither . --filter-paths "lib/|test/|script/|src/mocks/"
+```
+
+| Impact | Before | After |
+|---|---|---|
+| High | 0 | 0 |
+| Medium | 4 | 0 |
+| Low | 12 | 11 |
+| Informational | 78 | 78 |
+
+### Medium: `reentrancy-no-eth` (4) and Low: `reentrancy-benign` (1)
+
+Reported on `finalize`, `expire`, `join_with_permit` and `_execute_join`: state is written after `vault.redeem`, `vault.deposit` or `token.permit`, and Slither listed `settle`, `dispute`, `resolve_dispute` and `create_challenge` as functions that could be re-entered during that call.
+
+None of these could be exploited before the change. Vaults and tokens must be on the admin allowlist (threat model A6, A7), and the time windows exclude each other. For example, `finalize` runs only after the dispute window, while `dispute` runs only inside it.
+
+- **Fixed:** `settle`, `dispute`, `resolve_dispute` and `create_challenge` are now `nonReentrant`, so every state-changing function shares the guard. This adds a few thousand gas per call (one guard slot read and write) and does not change the ABI.
+- **Accepted and suppressed:** what Slither still reports is read-only reentrancy through the view functions `get_challenge`, `phase_of` and `preview_claim`. It matters only to a contract that reads those views in the middle of our call. The oracle and web read them off-chain, and the vault would have to be malicious and allowlisted. The four functions carry `// slither-disable-next-line reentrancy-no-eth` (plus `reentrancy-benign` on `join_with_permit`) with a pointer to this section.
+
+### Remaining Low and Informational (accepted)
+
+| Detector | Count | Why it stays |
+|---|---|---|
+| `timestamp` | 11 | Join deadline, end time, settle grace and dispute window are wall-clock rules by design. Validator skew of a few seconds does not matter at windows of hours and days. |
+| `naming-convention` | 74 | The project uses snake_case for functions and variables on purpose. |
+| `unindexed-event-address` | 3 | `TreasuryUpdated`, `TokenAllowed` and `VaultAllowed` are rare admin events. Indexing them would change the log layout that the oracle ABI decodes. |
+| `too-many-digits` | 1 | False positive: the SVG colour string `#000000` in `StudyBadge.build_svg`. |

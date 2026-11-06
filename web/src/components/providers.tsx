@@ -9,6 +9,7 @@ import { PrivyProvider } from '@privy-io/react-auth';
 import { WagmiProvider as PrivyWagmiProvider, createConfig as createPrivyWagmiConfig } from '@privy-io/wagmi';
 import { active_chain, PRIVY_APP_ID, PRIVY_ENABLED, RPC_URL } from '@/lib/config';
 import type { Lang } from '@/lib/i18n';
+import { THEME_COLORS } from '@/lib/theme';
 import { UiCtx, type Theme, type UiContext } from '@/hooks/use_ui';
 
 function read_pref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
@@ -40,12 +41,9 @@ const injected_config = createConfig({
   transports,
 });
 
-function build_privy_config() {
-  return createPrivyWagmiConfig({
-    chains: [active_chain],
-    transports,
-  });
-}
+// One config for the page's lifetime. wagmi keeps the wallet connection inside this object, and a new one has an empty
+// store that Privy's wagmi bridge does not fill again, so creating it per render would disconnect on every toggle.
+const privy_wagmi_config = PRIVY_ENABLED ? createPrivyWagmiConfig({ chains: [active_chain], transports }) : null;
 
 export function Providers({ children }: { children: ReactNode }) {
   const [query_client] = useState(() => new QueryClient());
@@ -54,6 +52,9 @@ export function Providers({ children }: { children: ReactNode }) {
   const [lang, set_lang_state] = useState<Lang>('vi');
   const [theme, set_theme_state] = useState<Theme>('dark');
 
+  // These two only update React state: the inline script in layout.tsx has already put the saved values on the page.
+  // An effect that wrote <html> from state would first write the initial 'vi' and 'dark' here, and the browser UI would
+  // blink black for anyone who saved light.
   useEffect(() => {
     set_lang_state(read_pref<Lang>('ss_lang', ['vi', 'en'], 'vi'));
     set_theme_state(read_pref<Theme>('ss_theme', ['dark', 'light'], 'dark'));
@@ -62,24 +63,23 @@ export function Providers({ children }: { children: ReactNode }) {
   const set_lang = (l: Lang) => {
     write_pref('ss_lang', l);
     set_lang_state(l);
+    document.documentElement.setAttribute('lang', l);
   };
   const set_theme = (t: Theme) => {
     write_pref('ss_theme', t);
     set_theme_state(t);
+    document.documentElement.setAttribute('data-theme', t);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[t]);
   };
 
   const ui: UiContext = { lang, set_lang, theme, set_theme, privy_enabled: PRIVY_ENABLED };
 
-  const inner = (
-    <QueryClientProvider client={query_client}>
-      <UiCtx.Provider value={ui}>{children}</UiCtx.Provider>
-    </QueryClientProvider>
-  );
+  const inner = <UiCtx.Provider value={ui}>{children}</UiCtx.Provider>;
 
-  if (!PRIVY_ENABLED) {
+  if (!privy_wagmi_config) {
     return (
       <WagmiProvider config={injected_config}>
-        {inner}
+        <QueryClientProvider client={query_client}>{inner}</QueryClientProvider>
       </WagmiProvider>
     );
   }
@@ -90,12 +90,15 @@ export function Providers({ children }: { children: ReactNode }) {
       config={{
         loginMethods: ['google', 'email', 'wallet'],
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
-        appearance: { theme: 'dark' },
+        appearance: { theme },
         defaultChain: active_chain,
         supportedChains: [active_chain],
       }}
     >
-      <PrivyWagmiProvider config={build_privy_config()}>{inner}</PrivyWagmiProvider>
+      {/* Must wrap PrivyWagmiProvider, which uses react-query hooks itself. The build fails otherwise. */}
+      <QueryClientProvider client={query_client}>
+        <PrivyWagmiProvider config={privy_wagmi_config}>{inner}</PrivyWagmiProvider>
+      </QueryClientProvider>
     </PrivyProvider>
   );
 }

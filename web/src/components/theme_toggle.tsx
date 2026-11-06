@@ -9,11 +9,7 @@ export function ThemeToggle() {
       type="button"
       className="btn btn-ghost min-w-[44px]"
       aria-label={t(lang, 'theme_toggle')}
-      onClick={() => {
-        const next = theme === 'dark' ? 'light' : 'dark';
-        set_theme(next);
-        document.documentElement.setAttribute('data-theme', next);
-      }}
+      onClick={() => set_theme(theme === 'dark' ? 'light' : 'dark')}
     >
       {theme === 'dark' ? '☀' : '☾'}
     </button>

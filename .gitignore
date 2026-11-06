@@ -21,6 +21,7 @@ test-results/
 # Foundry artifacts and local deployments
 contracts/broadcast/
 contracts/deployments/31337.json
+contracts/deployments/fork-*.json
 
 # Logs and OS junk
 .test_failures.log

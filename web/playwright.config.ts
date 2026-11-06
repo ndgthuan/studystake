@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// E2E runs against Anvil (chain 31337) with the oracle dev server on 8788 and `next start` on 3000.
-// Those three are started by the e2e:setup script (scripts/e2e_setup.mjs) before the tests run.
+// E2E runs against a local chain on 8545 with the oracle dev server on 8788 and `next start` on 3000.
+// scripts/e2e_setup.mjs starts them: `npm run e2e` does everything, `npm run e2e:setup` only starts the stack.
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 180_000,

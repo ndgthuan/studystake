@@ -52,7 +52,7 @@ export function load_config(env: Env): Config {
     manager: manager as `0x${string}`,
     deploy_block: BigInt(env.DEPLOY_BLOCK),
     allowed_origins: env.ALLOWED_ORIGINS,
-    moodle_sites: env.MOODLE_SITES.split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean),
+    moodle_sites: env.MOODLE_SITES.split(',').map((s) => normalize_site(s.trim())).filter(Boolean),
     faucet_amount_wei: BigInt(env.FAUCET_AMOUNT_WEI),
     faucet_daily_cap: parse_int(env.FAUCET_DAILY_CAP, 'FAUCET_DAILY_CAP'),
     oracle_private_key: env.ORACLE_PRIVATE_KEY as `0x${string}`,
@@ -69,7 +69,12 @@ function parse_int(value: string, name: string): number {
   return n;
 }
 
+/** One spelling per site, so a trailing slash cannot make the same LMS account look like a different one. */
+export function normalize_site(site: string): string {
+  return site.replace(/\/+$/, '');
+}
+
 /** Allowed moodle site check. Only https origins listed in MOODLE_SITES. */
 export function is_allowed_site(site: string, cfg: Pick<Config, 'moodle_sites'>): boolean {
-  return cfg.moodle_sites.includes(site.replace(/\/+$/, ''));
+  return cfg.moodle_sites.includes(normalize_site(site));
 }

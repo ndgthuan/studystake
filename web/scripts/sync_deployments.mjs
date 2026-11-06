@@ -8,7 +8,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const web_root = resolve(here, '..');
 const contracts_root = resolve(web_root, '..', 'contracts');
 const chain_id = process.env.NEXT_PUBLIC_CHAIN_ID ?? '31337';
-const dep_src = join(contracts_root, 'deployments', `${chain_id}.json`);
+// DEPLOYMENTS_FILE lets the Fuji fork stack sync its local addresses without touching the real deployments/43113.json.
+const dep_src = process.env.DEPLOYMENTS_FILE ?? join(contracts_root, 'deployments', `${chain_id}.json`);
 const gen_dir = join(web_root, 'src', 'generated');
 mkdirSync(gen_dir, { recursive: true });
 

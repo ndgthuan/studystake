@@ -1,6 +1,7 @@
 'use client';
 // Lets a student opt in or out of selling their Study Credential (docs/X402.md section 6). Off by default. The state
 // always comes from the oracle, so what is shown is what a buyer would be told. Signing costs no gas.
+import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAccount, useWalletClient } from 'wagmi';
@@ -75,6 +76,9 @@ export function CredentialConsent() {
           {t(lang, share ? 'consent_disable' : 'consent_enable')}
         </button>
       </div>
+      <Link href="/credential/verify" className="text-sm underline">
+        {t(lang, 'consent_verify_link')}
+      </Link>
       {failed ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{t(lang, 'consent_failed')}</p> : null}
       {consent_q.isError ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{t(lang, 'consent_load_failed')}</p> : null}
     </section>

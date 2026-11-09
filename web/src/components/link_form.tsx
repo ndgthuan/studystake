@@ -8,10 +8,9 @@ import { use_ui } from '@/hooks/use_ui';
 import { t } from '@/lib/i18n';
 import { oracle } from '@/lib/oracle';
 import { link_message, unlink_message } from '@/lib/messages';
+import { DEFAULT_MOODLE_SITE } from '@/lib/config';
 import { explain_error } from '@/lib/errors';
 import { CredentialConsent } from './credential_consent';
-
-const DEFAULT_SITE = 'https://courses.ctda.hcmus.edu.vn';
 
 export function LinkForm() {
   const { lang } = use_ui();
@@ -19,7 +18,7 @@ export function LinkForm() {
   const { data: client } = useWalletClient();
   const qc = useQueryClient();
   const [kind, set_kind] = useState<'moodle' | 'demo'>('demo');
-  const [site, set_site] = useState(DEFAULT_SITE);
+  const [site, set_site] = useState(DEFAULT_MOODLE_SITE);
   const [token, set_token] = useState('');
   const [consent, set_consent] = useState(false);
   const [msg, set_msg] = useState<string | null>(null);

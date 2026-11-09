@@ -10,6 +10,9 @@ export const PRIVY_ENABLED = PRIVY_APP_ID.length > 0;
 /** First block to scan for Joined events. Set to the deploy block for the target chain (0 is safe on Anvil). */
 export const DEPLOY_FROM_BLOCK = BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK ?? '0');
 
+/** The school StudyStake pilots with. Prefilled wherever a Moodle site is asked for. */
+export const DEFAULT_MOODLE_SITE = 'https://courses.ctda.hcmus.edu.vn';
+
 export const fuji = defineChain({
   id: 43113,
   name: 'Avalanche Fuji',

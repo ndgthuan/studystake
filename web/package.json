@@ -13,6 +13,7 @@
     "e2e:setup": "node scripts/e2e_setup.mjs",
     "e2e:fork": "node scripts/e2e_setup.mjs --fork",
     "e2e:fork:run": "node scripts/e2e_setup.mjs --fork --run",
+    "e2e:fork:api": "node scripts/e2e_setup.mjs --fork --no-web",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {

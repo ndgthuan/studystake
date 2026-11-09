@@ -3,7 +3,8 @@
 //   npm run e2e           Anvil stack, runs Playwright, stops everything, exits with Playwright's code
 //   npm run e2e:setup     Anvil stack, stays up until Ctrl+C (run `npx playwright test` by hand)
 //   npm run e2e:fork      Fuji fork stack with Circle USDC and a local x402 facilitator, stays up until Ctrl+C
-//   npm run e2e:fork:run  Fuji fork stack, runs the fork spec, stops everything
+//   npm run e2e:fork:run  Fuji fork stack, runs the fork spec and a real x402 payment, stops everything
+//   npm run e2e:fork:api  Fuji fork stack without the web, stays up until Ctrl+C. Skips the build, which is the memory peak
 //
 // Plain Anvil has no Circle USDC and tUSDC has no EIP-3009, so x402 work needs the fork. A fork keeps chain id 43113,
 // so deploy output must never land in contracts/deployments/43113.json, the file with the real Fuji addresses.
@@ -51,6 +52,7 @@ const TREASURY_ADDRESS = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
 const args = new Set(process.argv.slice(2));
 const FORK = args.has('--fork');
 const RUN_TESTS = args.has('--run');
+const NO_WEB = args.has('--no-web');
 const CHAIN_ID = FORK ? 43113 : 31337;
 // Anvil runs every spec, and the fork spec skips itself there. The other specs read 31337.json, so the fork stops at its own.
 const SPEC_FILTER = FORK ? ['fork_circle'] : [];
@@ -153,7 +155,7 @@ function port_in_use(port) {
 
 /** Fails early with instructions, instead of a confusing error halfway through. */
 async function preflight() {
-  const ports = FORK ? [CHAIN_PORT, ORACLE_PORT, WEB_PORT, FACILITATOR_PORT] : [CHAIN_PORT, ORACLE_PORT, WEB_PORT];
+  const ports = [CHAIN_PORT, ORACLE_PORT, ...(NO_WEB ? [] : [WEB_PORT]), ...(FORK ? [FACILITATOR_PORT] : [])];
   for (const port of ports) {
     if (await port_in_use(port)) throw new Error(`port ${port} is already in use. Stop what is running there and try again.`);
   }
@@ -162,7 +164,7 @@ async function preflight() {
     throw new Error('Foundry libraries are missing. Run: git submodule update --init --recursive');
   }
   if (!existsSync(join(oracle_root, 'node_modules'))) throw new Error('oracle dependencies are missing. Run: cd oracle && npm install');
-  if (RUN_TESTS && !existsSync(chromium.executablePath())) throw new Error('the Playwright browser is missing. Run: npx playwright install chromium');
+  if (RUN_TESTS && !NO_WEB && !existsSync(chromium.executablePath())) throw new Error('the Playwright browser is missing. Run: npx playwright install chromium');
 }
 
 async function rpc(method, params = []) {
@@ -273,6 +275,8 @@ function start_oracle(deployments, deploy_block) {
       TOKEN_ENC_KEY: randomBytes(32).toString('base64'),
       PRIVY_APP_ID: 'e2e-local',
       ALLOWED_ORIGINS: `${WEB_URL},http://localhost:${WEB_PORT}`,
+      // The paid route needs EIP-3009, so it only runs on the fork. Plain Anvil leaves it off (503).
+      ...(FORK ? { X402_FACILITATOR_URL: FACILITATOR_URL, X402_ASSET: CIRCLE_USDC, X402_PRICE: '5000' } : {}),
     },
   });
   return wait_http('the oracle', `${ORACLE_URL}/health`);
@@ -336,6 +340,15 @@ function run_playwright() {
   });
 }
 
+/** A real payment through the paid route. Its output goes straight to the terminal, like Playwright's. */
+function run_x402_check() {
+  return new Promise((done) => {
+    const child = spawn(process.execPath, ['scripts/x402_fork_check.mjs'], { cwd: oracle_root, stdio: 'inherit' });
+    child.on('error', () => done(1));
+    child.on('exit', (code) => done(code ?? 1));
+  });
+}
+
 async function main() {
   mkdirSync(log_dir, { recursive: true });
   await preflight();
@@ -344,19 +357,20 @@ async function main() {
   const deployments = await deploy_contracts();
   const funded = FORK ? await fund_fork_accounts() : [];
   // The build is the memory peak and needs neither service, so it runs before they start.
-  await build_web(deploy_block);
+  if (!NO_WEB) await build_web(deploy_block);
   await start_oracle(deployments, deploy_block);
   if (FORK) await start_facilitator();
-  await start_web(deploy_block);
+  if (!NO_WEB) await start_web(deploy_block);
 
   if (RUN_TESTS) {
-    await shutdown(await run_playwright());
+    const spec_code = NO_WEB ? 0 : await run_playwright();
+    await shutdown(spec_code === 0 && FORK ? await run_x402_check() : spec_code);
     return;
   }
   log(`stack is up. Logs: ${log_dir}`);
   log(`  chain        ${RPC} (chain id ${CHAIN_ID})`);
   log(`  oracle       ${ORACLE_URL}`);
-  log(`  web          ${WEB_URL}`);
+  if (!NO_WEB) log(`  web          ${WEB_URL}`);
   log(`  addresses    ${deployments_path}`);
   if (FORK) {
     log(`  facilitator  ${FACILITATOR_URL}`);

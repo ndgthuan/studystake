@@ -182,8 +182,8 @@ Full threat list and residual risks: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.
 - [x] **Merkle settlement with evidence hash.** The oracle posts a root plus a hash of public evidence, so results are auditable without names or student IDs.
 - [x] **Soulbound badge (ERC-721 + ERC-5192).** Completion streaks are on-chain and non-transferable.
 - [x] **Live on Fuji.** Contracts, oracle and web have public endpoints. The first tUSDC round reached claim. See [Live on Fuji](#live-on-fuji).
-- [ ] **One-transaction stake via EIP-2612 `permit`.** The Circle USDC path has a Fuji-fork browser test. A public Fuji web round with Circle USDC still needs transaction receipts.
-- [ ] **AVAX gas faucet for new users.** The release configuration grants 0.05 AVAX and the web shows the confirmed receipt. Redeploy the Worker and verify a first-time embedded wallet using the [Fuji runbook](docs/DEPLOY_FUJI.md).
+- [ ] **One-transaction stake via EIP-2612 `permit`.** The Circle USDC path passed a Fuji-fork browser test. Public Fuji verification needs a `join_with_permit` receipt from the web flow and a check that no separate approval was sent.
+- [ ] **AVAX gas faucet for new users.** The Fuji configuration sets the grant to 0.001 AVAX, and the web displays the confirmed receipt. Public Fuji verification needs the faucet transfer to a first-time Google sign-in wallet. See the [Fuji runbook](docs/DEPLOY_FUJI.md).
 - [ ] **Privy embedded wallet (Google sign-in).** Running on the live site with a real App ID; a full Google sign-in round by a real user is still to be recorded.
 - [ ] **Aave V3 adapter.** A join-to-claim lifecycle with real StataToken yield passed on a local C-Chain mainnet fork. The public app on Fuji uses simulated yield.
 - [ ] **x402 Study Credential API.** Paid endpoint and verification UI implemented. Circle USDC settlement has passed on a local Fuji fork. A public Fuji payment and Snowtrace receipt are pending.

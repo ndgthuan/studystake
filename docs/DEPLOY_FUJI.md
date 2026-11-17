@@ -58,7 +58,7 @@ npx wrangler r2 bucket create studystake-evidence
 ```
 > R2 may ask you to add a payment method to the Cloudflare account, even within the free tier.
 
-Set `MANAGER_ADDRESS`, `DEPLOY_BLOCK` and `ALLOWED_ORIGINS` in `wrangler.toml` for the target deployment. The committed Fuji configuration sends 0.05 AVAX per eligible new wallet, with a daily cap of 20. Fund the faucet wallet with up to 1 Fuji AVAX per day plus transaction fees for full capacity.
+Set `MANAGER_ADDRESS`, `DEPLOY_BLOCK` and `ALLOWED_ORIGINS` in `wrangler.toml` for the target deployment. The committed Fuji configuration sends 0.001 AVAX per eligible new wallet, with a daily cap of 20. Budget 0.02 Fuji AVAX per day plus transaction fees for full capacity.
 
 ```bash
 npx wrangler secret put ORACLE_PRIVATE_KEY
@@ -69,7 +69,7 @@ npm run deploy
 curl https://<worker>.workers.dev/health
 ```
 
-Confirm `chain_id` is `43113`, `manager` matches `contracts/deployments/43113.json`, and `faucet` reports `enabled: true`, `amount_wei: "50000000000000000"` and `daily_cap: 20`. The web displays the amount returned by the Worker once the transaction succeeds, with its Snowtrace link.
+Confirm `chain_id` is `43113`, `manager` matches `contracts/deployments/43113.json`, and `faucet` reports `enabled: true`, `amount_wei: "1000000000000000"` and `daily_cap: 20`. The web displays the amount returned by the Worker once the transaction succeeds, with its Snowtrace link.
 
 ### Team-hosted x402 facilitator
 
@@ -110,10 +110,10 @@ NEXT_PUBLIC_DEPLOY_BLOCK=<deploy block>
 ## 6. Run one full round on Fuji (mandatory before recording the video)
 
 1. Open `/admin` with the DEPLOYER wallet, create a challenge with the **USDC (Circle)** token and short durations (10-minute join, 1-hour deadline).
-2. Someone **outside the team**: log in with Google, check the automatic 0.05 AVAX gas, get USDC from Circle's faucet, link the Demo LMS, join, then do the demo work.
+2. Ask someone **outside the team** to log in with Google using a fresh embedded wallet. Open the faucet receipt in Snowtrace and confirm a 0.001 AVAX transfer to that wallet. Get Circle USDC, link Demo LMS and join. Record the `join_with_permit` receipt and check the wallet history for a separate USDC approval before the join. Then complete the demo work.
 3. Sponsor a few USDC from `/admin` (the form approves by itself).
 4. Wait for cron settle (every 5 minutes) → dispute window → finalize → claim. Open `/verify/<id>`.
-5. Record the tx hashes of **join, sponsor, settle, finalize, claim** in the README ("Real txs on Fuji" table).
+5. Record the tx hashes of **faucet, join, sponsor, settle, finalize and claim** in the README ("Real txs on Fuji" table). Tick the faucet and permit items after verifying the corresponding public Fuji receipts.
 
 ### Confirm one public x402 payment
 

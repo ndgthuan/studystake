@@ -102,7 +102,11 @@ async function ask_facilitator(
   try {
     const res = await fetch(`${x402.facilitator_url}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(x402.facilitator_token ? { authorization: `Bearer ${x402.facilitator_token}` } : {}),
+      },
+      redirect: 'error',
       body: JSON.stringify({ x402Version: X402_VERSION, paymentPayload: payload, paymentRequirements: requirements }),
       signal: AbortSignal.timeout(timeout_ms),
     });

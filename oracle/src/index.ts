@@ -155,6 +155,11 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
         manager: rt.cfg.manager,
         oracle_address: rt.port.oracle_address(),
         block: block.toString(),
+        faucet: {
+          enabled: rt.cfg.faucet_private_key !== null && rt.cfg.privy_app_id.length > 0,
+          amount_wei: rt.cfg.faucet_amount_wei.toString(),
+          daily_cap: rt.cfg.faucet_daily_cap,
+        },
       },
       200,
     );

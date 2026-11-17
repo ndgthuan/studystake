@@ -77,6 +77,10 @@ const read_stats = async () => (await fetch(`${ORACLE}/x402/stats`)).json();
 
 async function main() {
   await assert_local_fork();
+  for (const endpoint of ['/verify', '/settle']) {
+    const res = await fetch(`http://127.0.0.1:4022${endpoint}`, { method: 'POST' });
+    check(`the hosted facilitator protects ${endpoint}`, res.status === 401, `status ${res.status}`);
+  }
   const student = privateKeyToAccount(generatePrivateKey());
   const route = `${ORACLE}/x402/credential/${student.address}`;
   const stats_before = await read_stats();

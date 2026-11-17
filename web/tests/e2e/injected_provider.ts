@@ -9,11 +9,16 @@ export interface AnvilAccount {
 }
 
 /** Installs window.ethereum for the given account. The page sees it as a normal injected wallet. */
-export async function install_injected_wallet(page: Page, rpc_url: string, account: AnvilAccount): Promise<void> {
+export async function install_injected_wallet(page: Page, rpc_url: string, account: AnvilAccount, options: {
+  source?: 'ethereum' | 'avalanche';
+  missing_fuji?: boolean;
+} = {}): Promise<void> {
   await page.addInitScript(
-    ({ rpc, acct }) => {
+    ({ rpc, acct, source, missing_fuji }) => {
       const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
       let rpc_id = 1;
+      let selected_chain = missing_fuji ? '0x1' : null;
+      let added_fuji = !missing_fuji;
 
       async function rpc_call(method: string, params: unknown[] = []) {
         const res = await fetch(rpc, {
@@ -33,9 +38,15 @@ export async function install_injected_wallet(page: Page, rpc_url: string, accou
           case 'eth_accounts':
             return [acct.address];
           case 'eth_chainId':
-            return rpc_call('eth_chainId');
-          case 'wallet_switchEthereumChain':
+            return selected_chain ?? rpc_call('eth_chainId');
+          case 'wallet_switchEthereumChain': {
+            if (!added_fuji) throw Object.assign(new Error('Unknown Fuji chain'), { code: 4902 });
+            selected_chain = (params[0] as { chainId: string }).chainId;
+            listeners.get('chainChanged')?.forEach((listener) => listener(selected_chain));
+            return null;
+          }
           case 'wallet_addEthereumChain':
+            added_fuji = true;
             return null;
           case 'eth_sendTransaction': {
             const tx = { ...(params[0] as Record<string, unknown>), from: acct.address };
@@ -71,9 +82,9 @@ export async function install_injected_wallet(page: Page, rpc_url: string, accou
         },
       };
 
-      Object.defineProperty(window, 'ethereum', { value: provider, configurable: true });
+      Object.defineProperty(window, source, { value: provider, configurable: true });
       window.dispatchEvent(new Event('ethereum#initialized'));
     },
-    { rpc: rpc_url, acct: account },
+    { rpc: rpc_url, acct: account, source: options.source ?? 'ethereum', missing_fuji: options.missing_fuji ?? false },
   );
 }

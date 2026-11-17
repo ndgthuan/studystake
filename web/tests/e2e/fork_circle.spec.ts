@@ -115,3 +115,43 @@ test('Circle USDC: a fork user joins with one permit and the treasury sponsors f
     await treasury_ctx.close();
   }
 });
+
+for (const source of ['ethereum', 'avalanche'] as const) {
+  test(`the ${source} injected wallet adds and switches to Fuji`, async ({ page }) => {
+    const [account] = (await rpc('eth_accounts')) as Address[];
+    await install_injected_wallet(page, RPC, { address: account! }, { source, missing_fuji: true });
+    await page.goto('/');
+    const switch_network = page.getByRole('button', { name: /Chuyển mạng|Switch network/ });
+    await expect(switch_network).toBeVisible();
+    await switch_network.click();
+    await expect(switch_network).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Ngắt kết nối|Disconnect/ })).toBeVisible();
+  });
+}
+
+test('a creator can publish a Moodle challenge and commit its activity IDs', async ({ page }) => {
+  const [creator] = (await rpc('eth_accounts')) as Address[];
+  const { manager } = JSON.parse(readFileSync(process.env.E2E_DEPLOYMENTS!, 'utf8')) as { manager: Address };
+  const client = createPublicClient({ transport: http(RPC) });
+  await install_injected_wallet(page, RPC, { address: creator! });
+  await page.goto('/admin');
+  await page.getByPlaceholder('Title', { exact: true }).fill('Moodle pilot fixture');
+  await page.getByLabel(/Nguồn bài tập|Activity source/).selectOption('moodle');
+  const create = page.getByRole('button', { name: 'Create', exact: true });
+  await expect(create).toBeDisabled();
+  await page.getByPlaceholder(/ID khóa học|Course ID/).fill('42');
+  await page.getByPlaceholder(/Instance ID quiz|Quiz instance ID/).fill('11');
+  await page.getByPlaceholder(/Instance ID bài tập|Assignment instance ID/).fill('22');
+  await create.click();
+  await expect(page.getByRole('status').filter({ hasText: /^(Hoàn tất|Done)/ })).toBeVisible({ timeout: 30_000 });
+  const id = await client.readContract({ address: manager, abi: manager_abi, functionName: 'challenge_count' });
+  const challenge = await client.readContract({ address: manager, abi: manager_abi, functionName: 'get_challenge', args: [id] });
+  const metadata = await fetch(`${ORACLE}/metadata/${challenge.metadata_hash}`);
+  expect(metadata.ok).toBe(true);
+  const doc = await metadata.json();
+  expect(doc).toMatchObject({
+    title: 'Moodle pilot fixture', lms: 'moodle', site: 'https://courses.ctda.hcmus.edu.vn', course_id: 42,
+    activities: [{ kind: 'quiz', instance_id: 11 }, { kind: 'assign', instance_id: 22 }],
+  });
+  expect(keccak256(toBytes(canonical_json(doc)))).toBe(challenge.metadata_hash);
+});

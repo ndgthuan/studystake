@@ -42,76 +42,108 @@ export function injected_connector(options: InjectedOptions = {}) {
   const target = options.target;
   const source = options.source ?? 'ethereum';
   const get_provider = (): EIP1193Provider | null => target?.provider ?? window_provider(source);
-  return createConnector((config) => ({
-    id: target?.id ?? (source === 'avalanche' ? 'core' : 'injected'),
-    name: target?.name ?? (source === 'avalanche' ? 'Core' : 'Browser wallet'),
-    type: 'injected',
+  return createConnector((config) => {
+    let connected: EIP1193Provider | null = null;
+    function detach() {
+      connected?.removeListener?.('accountsChanged', on_accounts_changed);
+      connected?.removeListener?.('chainChanged', on_chain_changed);
+      connected?.removeListener?.('disconnect', on_disconnect);
+      connected = null;
+    }
+    function on_accounts_changed(accounts: string[]) {
+      if (accounts.length === 0) on_disconnect();
+      else config.emitter.emit('change', { accounts: accounts.map((account) => getAddress(account)) });
+    }
+    function on_chain_changed(chain: string) {
+      config.emitter.emit('change', { chainId: Number(chain) });
+    }
+    function on_disconnect() {
+      detach();
+      config.emitter.emit('disconnect');
+    }
+    return {
+      id: target?.id ?? (source === 'avalanche' ? 'core' : 'injected'),
+      name: target?.name ?? (source === 'avalanche' ? 'Core' : 'Browser wallet'),
+      type: 'injected',
 
-    async setup() {
-      return undefined;
-    },
+      async setup() {
+        return undefined;
+      },
 
-    async connect({ chainId } = {}) {
-      const provider = get_provider();
-      if (!provider) throw new Error('No injected wallet found');
-      const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[];
-      const current = (await provider.request({ method: 'eth_chainId' })) as string;
-      let id = Number(current);
-      if (chainId !== undefined && id !== chainId) {
-        await this.switchChain!({ chainId });
-        id = chainId;
-      }
-      return {
-        accounts: accounts.map((a) => getAddress(a)),
-        chainId: id,
-      } as never;
-    },
+      async connect({ chainId } = {}) {
+        const provider = get_provider();
+        if (!provider) throw new Error('No injected wallet found');
+        const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[];
+        const current = (await provider.request({ method: 'eth_chainId' })) as string;
+        let id = Number(current);
+        if (chainId !== undefined && id !== chainId) {
+          await this.switchChain!({ chainId });
+          id = chainId;
+        }
+        if (connected !== provider) {
+          detach();
+          provider.on?.('accountsChanged', on_accounts_changed);
+          provider.on?.('chainChanged', on_chain_changed);
+          provider.on?.('disconnect', on_disconnect);
+          connected = provider;
+        }
+        return {
+          accounts: accounts.map((a) => getAddress(a)),
+          chainId: id,
+        } as never;
+      },
 
-    async disconnect() {
-      return undefined;
-    },
+      async disconnect() {
+        detach();
+      },
 
-    async getAccounts() {
-      const provider = get_provider();
-      if (!provider) return [];
-      const accounts = (await provider.request({ method: 'eth_accounts' })) as string[];
-      return accounts.map((a) => getAddress(a));
-    },
+      async getAccounts() {
+        const provider = get_provider();
+        if (!provider) return [];
+        const accounts = (await provider.request({ method: 'eth_accounts' })) as string[];
+        return accounts.map((a) => getAddress(a));
+      },
 
-    async getChainId() {
-      const provider = get_provider();
-      if (!provider) return config.chains[0].id;
-      return Number(await provider.request({ method: 'eth_chainId' }));
-    },
+      async getChainId() {
+        const provider = get_provider();
+        if (!provider) return config.chains[0].id;
+        return Number(await provider.request({ method: 'eth_chainId' }));
+      },
 
-    async isAuthorized() {
-      const accounts = await this.getAccounts();
-      return accounts.length > 0;
-    },
+      async isAuthorized() {
+        const accounts = await this.getAccounts();
+        return accounts.length > 0;
+      },
 
-    async getProvider() {
-      return get_provider() as never;
-    },
+      async getProvider() {
+        return get_provider() as never;
+      },
 
-    async switchChain({ chainId }) {
-      const provider = get_provider();
-      if (!provider) throw new Error('No injected wallet found');
-      const chain = config.chains.find((c) => c.id === chainId) ?? config.chains[0];
-      try {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${chainId.toString(16)}` }],
+      async switchChain({ chainId }) {
+        const provider = get_provider();
+        if (!provider) throw new Error('No injected wallet found');
+        const chain = config.chains.find((c) => c.id === chainId);
+        if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
+        const switch_to_chain = () => provider.request({
+          method: 'wallet_switchEthereumChain', params: [{ chainId: `0x${chainId.toString(16)}` }],
         });
-      } catch (err) {
-        // 4902: the wallet does not know this chain yet. Add it, which also switches to it.
-        if ((err as { code?: number }).code !== 4902) throw err;
-        await provider.request({ method: 'wallet_addEthereumChain', params: [add_chain_params(chain)] } as never);
-      }
-      return chain;
-    },
+        try {
+          await switch_to_chain();
+        } catch (err) {
+          const error = err as { code?: number; data?: { originalError?: { code?: number } } };
+          if (error.code !== 4902 && error.data?.originalError?.code !== 4902) throw err;
+          await provider.request({ method: 'wallet_addEthereumChain', params: [add_chain_params(chain)] } as never);
+          // Some wallets register the chain without selecting it.
+          if (Number(await provider.request({ method: 'eth_chainId' })) !== chainId) await switch_to_chain();
+        }
+        if (Number(await provider.request({ method: 'eth_chainId' })) !== chainId) throw new Error('Wallet did not switch chains');
+        config.emitter.emit('change', { chainId });
+        return chain;
+      },
 
-    onAccountsChanged() {},
-    onChainChanged() {},
-    onDisconnect() {},
-  }));
+      onAccountsChanged: on_accounts_changed,
+      onChainChanged: on_chain_changed,
+      onDisconnect: on_disconnect,
+    };
+  });
 }

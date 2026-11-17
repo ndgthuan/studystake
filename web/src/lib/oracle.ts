@@ -94,10 +94,10 @@ export const oracle = {
     request<{ label: string; lms: string; title: string; activities: MetadataDoc['activities'] }>(`/demo/activities/${id}`),
   get_evidence: (id: number) => request<Record<string, unknown>>(`/evidence/${id}`),
   get_proof: (id: number, account: string) => request<ProofBody>(`/proof/${id}/${account}`),
-  post_faucet: (body: unknown, jwt: string | null) =>
-    request<{ tx_hash: string }>(`/faucet`, {
+  post_faucet: (body: unknown, jwt: string) =>
+    request<{ tx_hash: `0x${string}`; amount_wei: string }>(`/faucet`, {
       method: 'POST',
       body: JSON.stringify(body),
-      headers: jwt ? { authorization: `Bearer ${jwt}` } : {},
+      headers: { authorization: `Bearer ${jwt}` },
     }),
 };

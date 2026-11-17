@@ -4,11 +4,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
-import { parseEther } from 'viem';
-import { active_chain, CHAIN_ID } from '@/lib/config';
+import { formatEther, parseEther, type Address } from 'viem';
+import { active_chain, CHAIN_ID, explorer_tx } from '@/lib/config';
 import { has_core_wallet } from '@/lib/injected_connector';
 import { public_client } from '@/lib/contracts';
-import { oracle } from '@/lib/oracle';
+import { oracle, OracleError } from '@/lib/oracle';
 import { short_address } from '@/lib/verify';
 import { t, type Lang } from '@/lib/i18n';
 import { use_ui } from '@/hooks/use_ui';
@@ -58,6 +58,7 @@ function InjectedWalletButton() {
 function PrivyWalletButton() {
   const { lang } = use_ui();
   const { ready, authenticated, login, logout } = usePrivy();
+  const { address } = useAccount();
   if (!ready) return <button type="button" className="btn" disabled>{t(lang, 'login')}</button>;
   if (!authenticated) {
     return (
@@ -69,7 +70,7 @@ function PrivyWalletButton() {
   return (
     <div className="flex flex-col items-end gap-1">
       <Connected on_disconnect={() => void logout()} />
-      <GasDrip lang={lang} />
+      {address ? <GasDrip key={address} address={address} lang={lang} /> : null}
     </div>
   );
 }
@@ -95,39 +96,39 @@ function Connected({ on_disconnect }: { on_disconnect?: () => void }) {
   );
 }
 
-type DripState = 'idle' | 'sending' | 'sent' | 'failed';
+type DripState = { status: 'idle' | 'sending' | 'failed' } | { status: 'sent'; tx_hash: string; amount: string };
 
 /**
  * After a Privy login on Fuji, asks the oracle faucet for gas once if the wallet holds less than 0.02 AVAX.
  * The oracle enforces one grant per Privy user and per wallet; this only avoids pointless requests.
  */
-function GasDrip({ lang }: { lang: Lang }) {
+function GasDrip({ address, lang }: { address: Address; lang: Lang }) {
   const { getAccessToken } = usePrivy();
-  const { address } = useAccount();
-  const [state, set_state] = useState<DripState>('idle');
-  const asked_for = useRef<string | null>(null);
+  const [state, set_state] = useState<DripState>({ status: 'idle' });
+  const requested = useRef(false);
 
   useEffect(() => {
-    if (CHAIN_ID !== 43113 || !address || asked_for.current === address) return;
+    if (CHAIN_ID !== 43113 || requested.current) return;
     // Guarded by a ref, not a cleanup flag: a StrictMode re-run must not drop the result of the one request.
-    asked_for.current = address;
+    requested.current = true;
     void (async () => {
-      const balance = await public_client.getBalance({ address });
-      if (balance >= LOW_GAS_WEI) return;
-      set_state('sending');
       try {
+        if (await public_client.getBalance({ address }) >= LOW_GAS_WEI) return;
+        set_state({ status: 'sending' });
         const jwt = await getAccessToken();
+        if (!jwt) throw new Error('Privy access token unavailable');
         const res = await oracle.post_faucet({ wallet: address }, jwt);
-        await public_client.waitForTransactionReceipt({ hash: res.tx_hash as `0x${string}` });
-        set_state('sent');
-      } catch {
-        set_state('failed');
+        const receipt = await public_client.waitForTransactionReceipt({ hash: res.tx_hash, timeout: 45_000 });
+        if (receipt.status !== 'success') throw new Error('Faucet transaction failed');
+        set_state({ status: 'sent', tx_hash: res.tx_hash, amount: formatEther(BigInt(res.amount_wei)) });
+      } catch (err) {
+        set_state({ status: err instanceof OracleError && err.code === 'already_funded' ? 'idle' : 'failed' });
       }
     })();
   }, [address, getAccessToken]);
 
-  if (state === 'idle') return null;
-  if (state === 'failed') {
+  if (state.status === 'idle') return null;
+  if (state.status === 'failed') {
     return (
       <p className="text-xs text-[var(--muted)]">
         {t(lang, 'gas_failed')}{' '}
@@ -137,5 +138,12 @@ function GasDrip({ lang }: { lang: Lang }) {
       </p>
     );
   }
-  return <p className="text-xs text-[var(--muted)]">{t(lang, state === 'sending' ? 'gas_sending' : 'gas_sent')}</p>;
+  if (state.status !== 'sent') return <p className="text-xs text-[var(--muted)]">{t(lang, 'gas_sending')}</p>;
+  const link = explorer_tx(state.tx_hash);
+  return (
+    <p role="status" className="text-xs text-[var(--muted)]">
+      {t(lang, 'gas_sent').replace('{amount}', state.amount)}{' '}
+      {link ? <a className="underline" href={link} target="_blank" rel="noreferrer">{t(lang, 'view_explorer')}</a> : null}
+    </p>
+  );
 }

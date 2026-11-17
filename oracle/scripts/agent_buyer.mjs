@@ -2,7 +2,7 @@
 import { decodePaymentRequiredHeader } from '@x402/core/http';
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from '@x402/fetch';
 import { ExactEvmScheme } from '@x402/evm/exact/client';
-import { createPublicClient, getAddress, http, isAddress, isAddressEqual, parseAbi, recoverTypedDataAddress } from 'viem';
+import { createPublicClient, formatUnits, getAddress, http, isAddress, isAddressEqual, parseAbi, parseEventLogs, recoverTypedDataAddress } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { avalancheFuji } from 'viem/chains';
 import fuji_deployment from '../../contracts/deployments/43113.json' with { type: 'json' };
@@ -17,7 +17,10 @@ const MANAGER_ABI = parseAbi([
   'function ORACLE_ROLE() view returns (bytes32)',
   'function hasRole(bytes32 role, address account) view returns (bool)',
 ]);
-const TOKEN_ABI = parseAbi(['function balanceOf(address owner) view returns (uint256)']);
+const TOKEN_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+]);
 
 const loopback = (url) => ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 
@@ -53,16 +56,19 @@ async function seed_demo_students(oracle) {
 }
 
 async function main() {
-  const args = process.argv.slice(2);
+  const live = process.argv[2] === '--live-check';
+  const args = process.argv.slice(live ? 3 : 2);
   if (args.includes('--help')) {
     console.log('Usage: npm run x402:buyer -- <wallet-1> <wallet-2> <wallet-3>');
     console.log('       npm run x402:buyer -- --demo   (creates three consenting students on a local Fuji fork)');
-    console.log('Set X402_BUYER_PRIVATE_KEY, X402_ORACLE_URL (default http://127.0.0.1:8788), and X402_RPC_URL (default http://127.0.0.1:8545).');
+    console.log('       npm run x402:live-check -- <wallet>   (pays 0.005 test USDC once and confirms the Fuji receipt)');
+    console.log('Set X402_BUYER_PRIVATE_KEY. X402_ORACLE_URL and X402_RPC_URL override the local or live defaults.');
     return;
   }
-  const demo = args.length === 1 && args[0] === '--demo';
-  if (!demo && (args.length !== 3 || !args.every((arg) => isAddress(arg)) || new Set(args.map((wallet) => getAddress(wallet))).size !== 3)) {
-    throw new Error('Supply three distinct consenting wallets, or run with --demo on a local fork. See --help.');
+  const demo = !live && args.length === 1 && args[0] === '--demo';
+  const count = live ? 1 : 3;
+  if (!demo && (args.length !== count || !args.every((arg) => isAddress(arg)) || new Set(args.map((wallet) => getAddress(wallet))).size !== count)) {
+    throw new Error(`Supply ${count} distinct consenting wallet(s). See --help.`);
   }
   const key = process.env.X402_BUYER_PRIVATE_KEY;
   if (!key || !/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error('Set X402_BUYER_PRIVATE_KEY to a funded buyer key.');
@@ -73,8 +79,9 @@ async function main() {
     throw new Error('X402_BUYER_PRIVATE_KEY is not a valid signing key.');
   }
 
-  const oracle = endpoint(process.env.X402_ORACLE_URL ?? 'http://127.0.0.1:8788');
-  const rpc = endpoint(process.env.X402_RPC_URL ?? 'http://127.0.0.1:8545');
+  const oracle = endpoint(process.env.X402_ORACLE_URL ?? (live ? 'https://studystake-oracle.qalert-7k3m9x.workers.dev' : 'http://127.0.0.1:8788'));
+  const rpc = endpoint(process.env.X402_RPC_URL ?? (live ? 'https://avalanche-fuji-c-chain-rpc.publicnode.com' : 'http://127.0.0.1:8545'));
+  if (live && (loopback(oracle) || loopback(rpc))) throw new Error('Use x402:buyer for a local fork.');
   const chain = createPublicClient({ chain: avalancheFuji, transport: http(rpc.href) });
   if (demo && (!loopback(oracle) || !loopback(rpc) || !/^anvil\//i.test(await chain.request({ method: 'web3_clientVersion' })))) {
     throw new Error('--demo requires the local Anvil Fuji fork and a local oracle.');
@@ -96,7 +103,8 @@ async function main() {
     read_manager('ORACLE_ROLE'),
     chain.readContract({ address: ASSET, abi: TOKEN_ABI, functionName: 'balanceOf', args: [buyer.address] }),
   ]);
-  if (balance < BigInt(PRICE) * 3n) throw new Error('The buyer needs at least 0.015 Circle USDC on Fuji.');
+  const budget = BigInt(PRICE) * BigInt(count);
+  if (balance < budget) throw new Error(`The buyer needs at least ${formatUnits(budget, 6)} Circle USDC on Fuji.`);
 
   const wallets = demo ? await seed_demo_students(oracle) : args.map((wallet) => getAddress(wallet));
   const allowed = (offer) => offer.network === NETWORK && offer.scheme === 'exact' && offer.amount === PRICE &&
@@ -108,7 +116,7 @@ async function main() {
   const pay = wrapFetchWithPayment(fetch_oracle, client);
   const routes = wallets.map((wallet) => new URL(`/x402/credential/${wallet}`, oracle));
 
-  // Confirm all three can be purchased before authorizing the first transfer. The policy rechecks the actual paid quote.
+  // Confirm every quote before authorizing a transfer. The policy rechecks the actual paid quote.
   for (const route of routes) {
     const response = await fetch_oracle(route);
     const header = response.headers.get('payment-required');
@@ -131,6 +139,13 @@ async function main() {
       const typed = credential_typed_data(body.credential, chain_id, manager);
       const signer = await recoverTypedDataAddress({ ...typed, signature: body.signature });
       if (!await read_manager('hasRole', [oracle_role, signer])) throw new Error('credential signer lacks ORACLE_ROLE');
+      const receipt = await chain.waitForTransactionReceipt({ hash: body.transaction, timeout: 35_000 });
+      const transfers = parseEventLogs({ abi: TOKEN_ABI, eventName: 'Transfer', logs: receipt.logs });
+      if (receipt.status !== 'success' || !transfers.some(({ address, args }) =>
+        isAddressEqual(address, ASSET) && isAddressEqual(args.from, buyer.address) &&
+        isAddressEqual(args.to, treasury) && args.value === BigInt(PRICE)
+      )) throw new Error('receipt does not show the exact Circle USDC payment to the treasury');
+      if (live) console.error(`Confirmed on Fuji: https://testnet.snowtrace.io/tx/${receipt.transactionHash}`);
       console.log(JSON.stringify(body));
     } catch (error) {
       throw new Error(`Purchase for ${wallets[index]} could not be confirmed: ${error.message}. Check the buyer wallet and treasury before retrying.`);

@@ -20,7 +20,8 @@ bucket_name = "studystake-evidence"
 [vars]
 # Fuji defaults
 CHAIN_ID = "43113"
-RPC_URL = "https://api.avax-test.network/ext/bc/C/rpc"
+# The official public RPC caps eth_getLogs at 100 blocks, which breaks the 2000-block Joined scan. PublicNode does not.
+RPC_URL = "https://avalanche-fuji-c-chain-rpc.publicnode.com"
 # REPLACE_* : set after `forge script script/Deploy.s.sol --broadcast --rpc-url <fuji>`
 MANAGER_ADDRESS = "0xe642306aBB4bD8BB452B3089aCD84960F88B9786"
 DEPLOY_BLOCK = "61216349"

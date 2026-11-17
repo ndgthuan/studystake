@@ -121,7 +121,7 @@ sweep_rewards(id)                        // after the 180-day claim_period: only
 | `POST /link/moodle` | Verifies the Privy JWT. Takes the Moodle token, calls site_info, binds `(site,userid)↔wallet` (1-1, stored in KV). The token is AES-GCM encrypted with a secret and **deleted after the challenge settles** |
 | `POST /link/demo` | Links to the **Demo LMS** so judges and viewers can try it without HCMUS Moodle |
 | `GET /progress/:id/:wallet` | Progress per activity |
-| `POST /faucet` | Sends 0.05 AVAX to new users. Limited per Privy user id and address, with Turnstile |
+| `POST /faucet` | Sends the configured grant to eligible new wallets (0.001 AVAX on Fuji). Limited per Privy user id and address, with optional Turnstile |
 | `cron */5` | Finds challenges past `end_time` → checks each participant → builds a `StandardMerkleTree` → uploads evidence JSON to R2 → `settle()` |
 | `GET /evidence/:id` | Downloads the evidence JSON and tree file for self-checking |
 

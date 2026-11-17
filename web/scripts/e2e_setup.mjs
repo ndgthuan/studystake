@@ -38,6 +38,7 @@ const RPC = `http://127.0.0.1:${CHAIN_PORT}`;
 const ORACLE_URL = `http://127.0.0.1:${ORACLE_PORT}`;
 const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
 const FACILITATOR_URL = `http://127.0.0.1:${FACILITATOR_PORT}`;
+const FACILITATOR_TOKEN = randomBytes(32).toString('hex');
 
 // Anvil default dev keys (public, well known). Never use on a real network. Same roles as tests/e2e/chain.ts.
 const KEYS = {
@@ -276,7 +277,7 @@ function start_oracle(deployments, deploy_block) {
       PRIVY_APP_ID: 'e2e-local',
       ALLOWED_ORIGINS: `${WEB_URL},http://localhost:${WEB_PORT}`,
       // The paid route needs EIP-3009, so it only runs on the fork. Plain Anvil leaves it off (503).
-      ...(FORK ? { X402_FACILITATOR_URL: FACILITATOR_URL, X402_ASSET: CIRCLE_USDC, X402_PRICE: '5000' } : {}),
+      ...(FORK ? { X402_FACILITATOR_URL: FACILITATOR_URL, X402_FACILITATOR_TOKEN: FACILITATOR_TOKEN, X402_ASSET: CIRCLE_USDC, X402_PRICE: '5000' } : {}),
     },
   });
   return wait_http('the oracle', `${ORACLE_URL}/health`);
@@ -286,7 +287,10 @@ function start_facilitator() {
   log('starting the local x402 facilitator');
   start_service('facilitator', process.execPath, ['scripts/facilitator.mjs', String(FACILITATOR_PORT)], {
     cwd: oracle_root,
-    env: { ...process.env, FACILITATOR_PRIVATE_KEY: KEYS.facilitator, FACILITATOR_RPC_URL: RPC },
+    env: {
+      ...process.env, FACILITATOR_PRIVATE_KEY: KEYS.facilitator, FACILITATOR_RPC_URL: RPC,
+      FACILITATOR_HOST: '127.0.0.1', FACILITATOR_AUTH_TOKEN: FACILITATOR_TOKEN, FACILITATOR_TREASURY: TREASURY_ADDRESS,
+    },
   });
   return wait_http('the facilitator', `${FACILITATOR_URL}/supported`);
 }

@@ -17,12 +17,14 @@ export interface Env {
   PRIVY_APP_ID: string;
   TURNSTILE_SECRET?: string;
   X402_FACILITATOR_URL?: string;
+  X402_FACILITATOR_TOKEN?: string;
   X402_ASSET?: string;
   X402_PRICE?: string;
 }
 
 export interface X402Config {
   facilitator_url: string;
+  facilitator_token?: string;
   /** Token with EIP-3009. tUSDC does not work. */
   asset: string;
   /** Base units as a decimal string. */
@@ -82,7 +84,15 @@ function load_x402(env: Env): X402Config | null {
   if (url.length === 0) return null;
   if (!ADDRESS_RE.test(env.X402_ASSET ?? '')) throw new Error('X402_ASSET missing or malformed');
   if (!/^[1-9][0-9]*$/.test(env.X402_PRICE ?? '')) throw new Error('X402_PRICE must be positive base units');
-  return { facilitator_url: url.replace(/\/+$/, ''), asset: env.X402_ASSET!, price: env.X402_PRICE! };
+  const token = env.X402_FACILITATOR_TOKEN?.trim();
+  if (token) {
+    const endpoint = new URL(url);
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname);
+    if (endpoint.protocol !== 'https:' && !(local && endpoint.protocol === 'http:')) {
+      throw new Error('X402_FACILITATOR_URL must use HTTPS to send a facilitator token');
+    }
+  }
+  return { facilitator_url: url.replace(/\/+$/, ''), facilitator_token: token, asset: env.X402_ASSET!, price: env.X402_PRICE! };
 }
 
 function parse_int(value: string, name: string): number {

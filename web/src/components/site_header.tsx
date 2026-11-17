@@ -41,7 +41,7 @@ export function SiteHeader() {
 /** Admin link shows only when the connected wallet holds CREATOR_ROLE or GUARDIAN_ROLE on chain. */
 function AdminLink() {
   const { lang } = use_ui();
-  const { is_admin } = use_roles();
-  if (!is_admin) return null;
+  const { can_access_admin } = use_roles();
+  if (!can_access_admin) return null;
   return <Link href="/admin">{t(lang, 'nav_admin')}</Link>;
 }

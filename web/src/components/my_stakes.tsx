@@ -8,7 +8,7 @@ import { use_ui } from '@/hooks/use_ui';
 import { t } from '@/lib/i18n';
 import { format_usdc } from '@/lib/usdc';
 import { addresses, abis, public_client, PHASE_NAMES, type PhaseName } from '@/lib/contracts';
-import { DEPLOY_FROM_BLOCK } from '@/lib/config';
+import { CHAIN_ID, DEPLOY_FROM_BLOCK } from '@/lib/config';
 import { BadgeCard } from './badge_card';
 import { LinkStatus } from './link_status';
 import { phase_key } from '@/lib/format';
@@ -69,6 +69,12 @@ export function MyStakes() {
       <h1 className="text-2xl font-bold">{t(lang, 'me_title')}</h1>
       <LinkStatus />
       <BadgeCard wallet={address} />
+      {CHAIN_ID === 43113 ? (
+        <section className="card flex flex-col gap-1 p-4">
+          <h2 className="font-semibold">{t(lang, 'aave_yield_title')}</h2>
+          <p className="text-sm text-[var(--muted)]">{t(lang, 'aave_yield_status')}</p>
+        </section>
+      ) : null}
       {q.isLoading ? <p className="text-[var(--muted)]">{t(lang, 'loading')}</p> : null}
       {q.data && q.data.length === 0 ? <p className="text-[var(--muted)]">{t(lang, 'me_empty')}</p> : null}
       <ul className="flex flex-col gap-3">

@@ -10,6 +10,9 @@
     "test": "vitest run",
     "abi": "node scripts/gen_abi.mjs",
     "e2e:anvil": "node scripts/e2e_anvil.mjs",
+    "x402:buyer": "node scripts/agent_buyer.mjs",
+    "x402:live-check": "node scripts/agent_buyer.mjs --live-check",
+    "x402:facilitator": "node scripts/facilitator.mjs",
     "x402:check": "node scripts/x402_fork_check.mjs",
     "dry-run": "wrangler deploy --dry-run --outdir dist"
   },

@@ -63,6 +63,13 @@ export interface ProofBody {
   proof: `0x${string}`[];
 }
 
+export interface X402Stats {
+  pay_to: `0x${string}`;
+  asset: `0x${string}`;
+  settled_amount: string;
+  settled_count: number;
+}
+
 export interface EvidenceEntryView {
   account: string;
   stake: string;
@@ -80,16 +87,17 @@ export const oracle = {
   delete_link: (body: unknown) => request<{ ok: boolean }>(`/link`, { method: 'DELETE', body: JSON.stringify(body) }),
   get_consent: (wallet: string) => request<{ wallet: string; share: boolean }>(`/x402/credential/${wallet}/consent`),
   post_consent: (body: unknown) => request<{ wallet: string; share: boolean }>(`/x402/credential/consent`, { method: 'POST', body: JSON.stringify(body) }),
+  get_x402_stats: () => request<X402Stats>('/x402/stats'),
   get_progress: (id: number, wallet: string) => request<ProgressBody>(`/progress/${id}/${wallet}`),
   post_demo_submit: (body: unknown) => request<{ ok: boolean; submitted_at: number }>(`/demo/submit`, { method: 'POST', body: JSON.stringify(body) }),
   get_demo_activities: (id: number) =>
     request<{ label: string; lms: string; title: string; activities: MetadataDoc['activities'] }>(`/demo/activities/${id}`),
   get_evidence: (id: number) => request<Record<string, unknown>>(`/evidence/${id}`),
   get_proof: (id: number, account: string) => request<ProofBody>(`/proof/${id}/${account}`),
-  post_faucet: (body: unknown, jwt: string | null) =>
-    request<{ tx_hash: string }>(`/faucet`, {
+  post_faucet: (body: unknown, jwt: string) =>
+    request<{ tx_hash: `0x${string}`; amount_wei: string }>(`/faucet`, {
       method: 'POST',
       body: JSON.stringify(body),
-      headers: jwt ? { authorization: `Bearer ${jwt}` } : {},
+      headers: { authorization: `Bearer ${jwt}` },
     }),
 };

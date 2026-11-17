@@ -6,7 +6,7 @@ Source of truth for `oracle/`. When in conflict with SPEC.md §5, this file wins
 - Cloudflare Worker, strict TypeScript, `wrangler` v4. Bindings: KV `STATE`, R2 `EVIDENCE`, cron `*/5 * * * *`.
 - Minimal libraries: `viem`, `@openzeppelin/merkle-tree`, `jose` (verifies the Privy JWT), `zod` (validates input). Tests: `vitest` (unit, mocked `fetch`), plus an E2E script run on Anvil with Node.
 - Secrets (`wrangler secret put`, never in files): `ORACLE_PRIVATE_KEY`, `FAUCET_PRIVATE_KEY`, `TOKEN_ENC_KEY` (32 bytes base64, for AES-GCM), `PRIVY_APP_ID`, `TURNSTILE_SECRET` (optional).
-- Vars: `CHAIN_ID`, `RPC_URL`, `MANAGER_ADDRESS`, `DEPLOY_BLOCK`, `ALLOWED_ORIGINS`, `MOODLE_SITES` (allowlist, defaults to `https://courses.ctda.hcmus.edu.vn`), `FAUCET_AMOUNT_WEI` (0.05 AVAX), `FAUCET_DAILY_CAP`.
+- Vars: `CHAIN_ID`, `RPC_URL`, `MANAGER_ADDRESS`, `DEPLOY_BLOCK`, `ALLOWED_ORIGINS`, `MOODLE_SITES` (allowlist, defaults to `https://courses.ctda.hcmus.edu.vn`), `FAUCET_AMOUNT_WEI` (0.001 AVAX on Fuji), `FAUCET_DAILY_CAP`.
 - Naming: self-defined functions, variables and JSON fields use `snake_case`.
 
 ## Structure

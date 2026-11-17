@@ -1,0 +1,2 @@
+# Foundry and Slither must agree on byte offsets for inline findings.
+*.sol text eol=lf

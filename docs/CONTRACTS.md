@@ -190,6 +190,8 @@ Static analysis with Slither 0.11.6 (solc 0.8.28), run from `contracts/`:
 python -m slither . --filter-paths "lib/|test/|script/|src/mocks/"
 ```
 
+The 17 November 2026 rerun with the Aave adapter reported 0 High, 0 Medium, 11 Low and 79 Informational. On Windows, a CRLF checkout shifted Slither's source offsets and reported three already documented read-only findings. `contracts/.gitattributes` keeps Solidity files in LF so the compiler and Slither resolve the same source lines.
+
 | Impact | Before | After |
 |---|---|---|
 | High | 0 | 0 |

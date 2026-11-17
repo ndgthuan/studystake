@@ -5,7 +5,7 @@
 
 ## Current problem
 
-The current code is generic EVM: deployed to Ethereum or Polygon it would run exactly the same. Everything specific to Avalanche (x402, a dedicated L1, ICM) is still on the "roadmap". The project is also **not deployed on Fuji yet** (`web/src/generated/deployments.json` still holds Anvil addresses).
+This plan started before the Fuji deployment. The current Fuji addresses and first completed tUSDC round are in [Live on Fuji](../README.md#live-on-fuji). The Circle USDC and x402 checks use a local Fuji fork. A public Fuji x402 payment still needs a receipt.
 
 Judges score these 25 points by asking: *"Which part of the product only makes sense on Avalanche, and does it really run on-chain?"*
 
@@ -38,7 +38,7 @@ Principle: **do not touch P1 until P0 is done. Do not touch P2 until P1 runs on 
 7. **Run one real challenge on Fuji** with the Demo LMS, end to end (join → settle → dispute window → finalize → claim). Keep the tx hash of each step for the README and the video.
 
 ### Done when
-- [ ] The README has a table of Fuji addresses with verified Snowtrace links
+- [x] The README has a table of Fuji addresses and Snowtrace links
 - [ ] Someone outside the team can open the web, log in with Google, join and claim on Fuji without guidance
 - [ ] Playwright E2E runs on Fuji (or at least a full screen recording)
 
@@ -106,6 +106,18 @@ C-Chain Fuji: StudyStakeManager.claim()
 ### Risks (read before starting)
 - **To check:** whether testnet L1s created through Builder Console expire, and whether an ICM relayer is included. If the L1 goes down before judging (21–23/11), this part breaks. In that case present it only in the video (with tx hashes), and do **not** put it in the web's main flow.
 - If P1 is not done by 15/11, **drop P2**. Present L1 + ICM in the slides only, as roadmap, with an architecture diagram.
+
+### Decision on 17 November 2026
+
+Use the Aave V3 fork fallback for the demo. A public Fuji x402 payment was still pending, and both the hosted relayer and the managed L1 node shut down after three days. Starting a managed setup on 17 November would leave a gap before judging from 21 to 23 November. A self-hosted setup would need a separate deployment with funded relaying on both chains. [Managed validator documentation](https://build.avax.network/academy/avalanche-l1/avalanche-fundamentals/04-creating-an-l1/06-run-a-node) · [Hosted relayer documentation](https://build.avax.network/academy/avalanche-l1/native-token-bridge/03-native-to-native/03-relayer-setup)
+
+The adapter resolves the official Aave StataToken vault, which already implements ERC-4626. `StudyStakeManager` uses that vault directly. Run the lifecycle against a local Avalanche C-Chain mainnet fork from `contracts/`, without broadcasting:
+
+```powershell
+forge test --fork-url $env:AVALANCHE_MAINNET_RPC --match-contract AaveV3AdapterForkTest -vv
+```
+
+The check passed at C-Chain block `100563626`. It deployed the adapter and Manager on the fork, resolved the official USDC StataToken, staked 100 USDC, accrued Aave yield, and claimed principal plus rewards with a badge. The public Fuji app uses simulated yield. [Aave StataToken documentation](https://aave.com/docs/aave-v3/smart-contracts/tokenization#statatokenfactory)
 
 ### Done when
 - [ ] At least one successful ICM message C-Chain → L1, with tx hashes on both sides

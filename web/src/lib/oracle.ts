@@ -63,6 +63,13 @@ export interface ProofBody {
   proof: `0x${string}`[];
 }
 
+export interface X402Stats {
+  pay_to: `0x${string}`;
+  asset: `0x${string}`;
+  settled_amount: string;
+  settled_count: number;
+}
+
 export interface EvidenceEntryView {
   account: string;
   stake: string;
@@ -80,6 +87,7 @@ export const oracle = {
   delete_link: (body: unknown) => request<{ ok: boolean }>(`/link`, { method: 'DELETE', body: JSON.stringify(body) }),
   get_consent: (wallet: string) => request<{ wallet: string; share: boolean }>(`/x402/credential/${wallet}/consent`),
   post_consent: (body: unknown) => request<{ wallet: string; share: boolean }>(`/x402/credential/consent`, { method: 'POST', body: JSON.stringify(body) }),
+  get_x402_stats: () => request<X402Stats>('/x402/stats'),
   get_progress: (id: number, wallet: string) => request<ProgressBody>(`/progress/${id}/${wallet}`),
   post_demo_submit: (body: unknown) => request<{ ok: boolean; submitted_at: number }>(`/demo/submit`, { method: 'POST', body: JSON.stringify(body) }),
   get_demo_activities: (id: number) =>

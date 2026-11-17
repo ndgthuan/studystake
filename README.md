@@ -17,7 +17,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/license-MIT-0e6ba8?style=flat"></a>
   <img alt="Avalanche" src="https://img.shields.io/badge/Avalanche-E84142?style=flat&logo=avalanche&logoColor=white">
-  <img alt="Tests: 226 passing" src="https://img.shields.io/badge/tests-226%20passing-2EA44F?style=flat">
+  <img alt="Tests: 345 passing" src="https://img.shields.io/badge/tests-345%20passing-2EA44F?style=flat">
   <img alt="Network: live on Fuji" src="https://img.shields.io/badge/network-live%20on%20Fuji-E84142?style=flat">
   <img alt="UniHack 2026" src="https://img.shields.io/badge/UniHack-2026-E84142?style=flat">
 </p>
@@ -181,14 +181,20 @@ Full threat list and residual risks: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.
 - [x] **ERC-4626 yield vault.** `MockYieldVault` is the yield source. Its yield is simulated on testnet.
 - [x] **Merkle settlement with evidence hash.** The oracle posts a root plus a hash of public evidence, so results are auditable without names or student IDs.
 - [x] **Soulbound badge (ERC-721 + ERC-5192).** Completion streaks are on-chain and non-transferable.
-- [x] **One-transaction stake via EIP-2612 `permit`.** The user signs once, with no separate approval.
-- [x] **AVAX gas faucet for new users.** Provided by the oracle Worker so first-time users can transact.
-- [x] **Live on Fuji.** Contracts verified on Snowtrace, oracle on Cloudflare Workers, web on Vercel. See [Live on Fuji](#live-on-fuji).
+- [x] **Live on Fuji.** Contracts, oracle and web have public endpoints. The first tUSDC round reached claim. See [Live on Fuji](#live-on-fuji).
+- [ ] **One-transaction stake via EIP-2612 `permit`.** The Circle USDC path has a Fuji-fork browser test. A public Fuji web round with Circle USDC still needs transaction receipts.
+- [ ] **AVAX gas faucet for new users.** The Worker implements the faucet and its Fuji config sets 0.001 AVAX. A first-time embedded wallet receiving gas still needs a live walkthrough.
 - [ ] **Privy embedded wallet (Google sign-in).** Running on the live site with a real App ID; a full Google sign-in round by a real user is still to be recorded.
-- [ ] **Aave v3 adapter on C-Chain mainnet.** Real yield. Roadmap, not started.
-- [ ] **x402 "Study Reputation API".** Roadmap, not started.
+- [ ] **Aave V3 adapter.** A join-to-claim lifecycle with real StataToken yield passed on a local C-Chain mainnet fork. The public app on Fuji uses simulated yield.
+- [ ] **x402 Study Credential API.** Paid endpoint and verification UI implemented. Circle USDC settlement has passed on a local Fuji fork. A public Fuji payment and Snowtrace receipt are pending.
 - [ ] **StudyNet L1 for the school (ICM, Builder Console).** Roadmap, not started.
 - [ ] **zkTLS (Reclaim or TLSNotary) to replace the trusted oracle.** Roadmap, not started.
+
+## Why Avalanche
+
+- **C-Chain settlement.** The Fuji [100 tUSDC join receipt](https://testnet.snowtrace.io/tx/0xbec2d81e11e5b39de4653a4a4320483102d3e5173f0acaee009b1cc2157c3476) used 283,023 gas at 155 wei per gas, costing 43,868,565 wei of test AVAX. This records the fee for that transaction; gas prices vary.
+- **Native Circle USDC and EIP-3009.** The buyer signs a payment authorization and a facilitator submits the transfer, so an x402 buyer can pay with USDC without holding AVAX for that transaction. The [x402 fork check](oracle/scripts/x402_fork_check.mjs) verifies the exact treasury payment and the credential signer.
+- **Public evidence.** The browser recalculates the evidence hash and Merkle root for [challenge #1](https://studystake-puce.vercel.app/verify/1) and compares both with the commitments on Fuji. The same round links each step through to [claim and badge mint](https://testnet.snowtrace.io/tx/0x4a877c95516d2bc0b8daf38a068fa611c40781e68b0b7d54a92e9e833d1f092c).
 
 ## Live on Fuji
 
@@ -225,9 +231,9 @@ Two students staked tUSDC. Student A finished both demo activities, student B fi
 | Component | Tests | Command |
 |---|---|---|
 | Contracts (Foundry) | 92, including fuzz and invariant. `StudyStakeManager` at about 98% line coverage. | `forge test` |
-| Oracle (Cloudflare Worker) | 100 vitest tests plus E2E on Anvil | `npm test`, `npm run e2e:anvil` |
-| Web (Next.js) | 34 vitest tests plus Playwright E2E on Anvil | `npm test`, `npm run e2e` |
-| **Total** | **226** | |
+| Oracle (Cloudflare Worker) | 176 Vitest tests plus E2E on Anvil and x402 on a Fuji fork | `npm test`, `npm run e2e:anvil` |
+| Web (Next.js) | 77 Vitest tests plus Playwright E2E on Anvil and a Fuji fork | `npm test`, `npm run e2e`, `npm run e2e:fork:run` |
+| **Total** | **345** contract and unit tests | |
 
 > [!NOTE]
 > Honesty notes:

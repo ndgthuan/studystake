@@ -14,7 +14,12 @@ const ORACLE = 'http://127.0.0.1:8788';
 const FACILITATOR = 'http://127.0.0.1:4022';
 const CIRCLE_USDC: Address = '0x5425890298aed601595a70AB815c96711a31Bc65';
 const STAKE = 10_000_000n;
-const erc20 = parseAbi(['function balanceOf(address) view returns (uint256)', 'function allowance(address, address) view returns (uint256)']);
+const REVENUE = 5_000n;
+const erc20 = parseAbi([
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address, address) view returns (uint256)',
+  'function transfer(address recipient, uint256 amount) returns (bool)',
+]);
 
 test.skip(process.env.E2E_MODE !== 'fork', 'needs the Fuji fork stack: npm run e2e:fork:run');
 
@@ -25,12 +30,13 @@ async function rpc(method: string, params: unknown[] = []): Promise<unknown> {
   return json.result;
 }
 
-test('Circle USDC: a fork user joins through the UI in one permit transaction', async ({ browser }) => {
+test('Circle USDC: a fork user joins with one permit and the treasury sponsors from x402', async ({ browser }) => {
   const deployments = JSON.parse(readFileSync(process.env.E2E_DEPLOYMENTS!, 'utf8')) as { manager: Address; circle_usdc: Address; circle_usdc_vault: Address };
   expect(deployments.circle_usdc).toBe(CIRCLE_USDC);
   const client = createPublicClient({ transport: http(RPC) });
   const accounts = (await rpc('eth_accounts')) as Address[];
   const deployer = accounts[0]!;
+  const treasury = accounts[2]!;
   const user = accounts[4]!;
 
   const supported = (await (await fetch(`${FACILITATOR}/supported`)).json()) as { kinds: { x402Version: number; scheme: string; network: string }[] };
@@ -77,4 +83,35 @@ test('Circle USDC: a fork user joins through the UI in one permit transaction', 
   // One transaction and no leftover allowance: the permit path ran, not approve + join.
   expect((await client.getTransactionCount({ address: user })) - nonce_before).toBe(1);
   expect(await client.readContract({ address: CIRCLE_USDC, abi: erc20, functionName: 'allowance', args: [user, deployments.manager] })).toBe(0n);
+
+  // The live Worker settlement is tested separately by x402:check. Seed its token transfer and stats for the UI path.
+  const treasury_balance = await client.readContract({ address: CIRCLE_USDC, abi: erc20, functionName: 'balanceOf', args: [treasury] });
+  const transfer = (await rpc('eth_sendTransaction', [{
+    from: user, to: CIRCLE_USDC, data: encodeFunctionData({ abi: erc20, functionName: 'transfer', args: [treasury, REVENUE] }),
+  }])) as Hex;
+  expect((await client.waitForTransactionReceipt({ hash: transfer })).status).toBe('success');
+  const treasury_ctx = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' });
+  try {
+    const admin = await treasury_ctx.newPage();
+    await install_injected_wallet(admin, RPC, { address: treasury });
+    await admin.route(`${ORACLE}/x402/stats`, async (route) => {
+      await route.fulfill({ json: { pay_to: treasury, asset: CIRCLE_USDC, settled_count: 1, settled_amount: REVENUE.toString() } });
+    });
+    await admin.goto('/');
+    await admin.getByRole('link', { name: /^(Quản trị|Admin)$/ }).click();
+    await expect(admin.getByText('0.005 USDC', { exact: true })).toBeVisible({ timeout: 30_000 });
+    const sponsor = admin.getByRole('button', { name: /Tài trợ bằng doanh thu x402|Sponsor with x402 revenue/ });
+    await expect(sponsor).toBeDisabled();
+    await admin.getByRole('textbox', { name: /ID challenge|Challenge ID/ }).fill(id.toString());
+    await sponsor.click();
+    await expect(admin.getByRole('status').filter({ hasText: /^(Hoàn tất|Done)/ })).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => client.readContract({
+      address: deployments.manager, abi: manager_abi, functionName: 'sponsor_amount_of', args: [id, treasury],
+    })).toBe(REVENUE);
+    expect(await client.readContract({ address: CIRCLE_USDC, abi: erc20, functionName: 'balanceOf', args: [treasury] })).toBe(treasury_balance);
+    await admin.goto('/me');
+    await expect(admin.getByRole('heading', { name: /Tích hợp Aave V3|Aave V3 integration/ })).toBeVisible();
+  } finally {
+    await treasury_ctx.close();
+  }
 });

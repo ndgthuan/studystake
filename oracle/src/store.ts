@@ -18,6 +18,8 @@ export interface LinkRecord {
   userid: number | null;
   subject_hash: string;
   token_enc: string | null;
+  linked_at?: number;
+  revoked?: true;
 }
 
 export const LOCK_TTL_SECONDS = 240;
@@ -41,6 +43,10 @@ export async function put_json(kv: KvLike, key: string, value: unknown, ttl?: nu
 
 export async function get_link(kv: KvLike, wallet: string): Promise<LinkRecord | null> {
   return get_json<LinkRecord>(kv, link_key(wallet));
+}
+
+export function link_is_active(link: LinkRecord | null): link is LinkRecord {
+  return link !== null && !link.revoked && (link.lms === 'demo' || link.token_enc !== null);
 }
 
 /**

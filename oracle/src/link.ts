@@ -1,6 +1,9 @@
 // Wallet <-> LMS link verification. Pure message builders plus signature checking via viem.
 import { verifyMessage } from 'viem';
 import { z } from 'zod';
+import { normalize_site } from './config.ts';
+import type { ChallengeMetadata } from './metadata.ts';
+import type { LinkRecord } from './store.ts';
 
 export const LINK_MAX_SKEW_SECONDS = 600;
 
@@ -13,6 +16,10 @@ export const link_body_schema = z.strictObject({
   issued_at: z.number().int().positive(),
 });
 export type LinkBody = z.infer<typeof link_body_schema>;
+
+export function link_matches_challenge(link: Pick<LinkRecord, 'lms' | 'site' | 'revoked'>, meta: Pick<ChallengeMetadata, 'lms' | 'site'>): boolean {
+  return !link.revoked && link.lms === meta.lms && (meta.lms === 'demo' || normalize_site(link.site) === normalize_site(meta.site));
+}
 
 export function link_message(wallet: string, lms: string, site: string, issued_at: number): string {
   return `StudyStake link\nwallet: ${wallet.toLowerCase()}\nlms: ${lms}\nsite: ${site}\nissued_at: ${issued_at}`;

@@ -16,6 +16,7 @@ import {
   consent_message,
   demo_submit_message,
   link_body_schema,
+  link_matches_challenge,
   link_message,
   nonce_key,
   NONCE_TTL_SECONDS,
@@ -35,7 +36,7 @@ import {
 } from './progress.ts';
 import { check_rate_limit } from './ratelimit.ts';
 import { participants_of, run_settle_job, type SettleDeps } from './settle.ts';
-import { get_link, get_text, put_evidence, put_json, subject_key, type LinkRecord, type R2Like, type Store } from './store.ts';
+import { get_link, get_text, link_is_active, link_key, put_evidence, put_json, subject_key, type LinkRecord, type R2Like, type Store } from './store.ts';
 import {
   build_requirements,
   decode_payment_header,
@@ -180,8 +181,8 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
 
   if (req.method === 'GET' && parts[0] === 'link' && parts.length === 2) {
     const link = await get_link(rt.store.kv, parts[1]!);
-    if (link === null) return json_response({ linked: false }, 200);
-    return json_response({ lms: link.lms, site: link.site, linked: true }, 200);
+    const state = link_is_active(link) ? { lms: link.lms, site: link.site, linked: true } : { linked: false };
+    return json_response(state, 200, { 'cache-control': 'no-store' });
   }
 
   if (req.method === 'POST' && path === '/demo/submit') return handle_demo_submit(req, rt, now);
@@ -263,6 +264,9 @@ async function handle_metadata_post(req: Request, url: URL, rt: Runtime, now: nu
   if (!(await rt.port.has_creator_role(body.wallet))) {
     throw new ApiError(403, 'not_creator', 'wallet lacks CREATOR_ROLE');
   }
+  if (meta.lms === 'moodle' && !is_allowed_site(meta.site, rt.cfg)) {
+    throw new ApiError(400, 'site_not_allowed', 'site not in allowlist');
+  }
   await rt.store.r2.put(metadata_key(hash), canonical_json(meta), {
     httpMetadata: { contentType: 'application/json' },
   });
@@ -292,7 +296,14 @@ async function handle_link(req: Request, rt: Runtime, now: number): Promise<Resp
   let token_enc: string | null = null;
   if (body.lms === 'moodle') {
     const token = body.moodle_token!;
-    userid = await fetch_userid(site, token);
+    try {
+      userid = await fetch_userid(site, token);
+    } catch (err) {
+      if (!(err instanceof LmsError)) throw err;
+      if (err.code === 'invalid_token') throw new ApiError(400, 'invalid_token', 'Moodle rejected the token');
+      if (err.code === 'lms_client_error') throw new ApiError(400, 'moodle_access_denied', 'Moodle denied web service access');
+      throw new ApiError(502, 'moodle_unavailable', 'Moodle did not return account information');
+    }
     subject_hash = subject_hash_of(site, userid);
     token_enc = await encrypt_token(token, rt.cfg.token_enc_key);
   } else {
@@ -314,8 +325,8 @@ async function handle_link(req: Request, rt: Runtime, now: number): Promise<Resp
   }
 
   await rt.store.kv.put(subject_k, wallet);
-  const record: LinkRecord = { wallet, lms: body.lms, site, userid, subject_hash, token_enc };
-  await put_json(rt.store.kv, `link:${wallet}`, record);
+  const record: LinkRecord = { wallet, lms: body.lms, site, userid, subject_hash, token_enc, linked_at: Math.floor(Date.now() / 1000) };
+  await put_json(rt.store.kv, link_key(wallet), record);
   return json_response({ lms: body.lms, site, linked: true }, 200);
 }
 
@@ -327,7 +338,7 @@ async function handle_unlink(req: Request, rt: Runtime, now: number): Promise<Re
   const wallet = body.wallet.toLowerCase();
   const link = await get_link(rt.store.kv, wallet);
   if (link !== null) {
-    await put_json(rt.store.kv, `link:${wallet}`, { ...link, token_enc: null });
+    await put_json(rt.store.kv, link_key(wallet), { ...link, token_enc: null, revoked: true });
   }
   await rt.store.kv.delete(consent_key(wallet));
   return json_response({ ok: true }, 200);
@@ -346,7 +357,7 @@ async function handle_consent_post(req: Request, rt: Runtime, now: number): Prom
   await rt.store.kv.put(nonce, '1', { expirationTtl: NONCE_TTL_SECONDS });
 
   const link = await get_link(rt.store.kv, body.wallet);
-  if (link === null) throw new ApiError(404, 'not_linked', 'wallet has no LMS link');
+  if (!link_is_active(link)) throw new ApiError(404, 'not_linked', 'wallet has no active LMS link');
   await write_consent(rt.store.kv, link, body.share, now);
   return json_response({ wallet: body.wallet.toLowerCase(), share: body.share }, 200);
 }
@@ -416,6 +427,10 @@ async function handle_progress(req: Request, rt: Runtime, id: number, wallet: st
     const base = { instance_id: act.instance_id, kind: act.kind };
     if (link === null || stake === 0n) {
       activities.push({ ...base, submitted: false, time_finished: null, status: 'missing' });
+      continue;
+    }
+    if (!link_matches_challenge(link, meta)) {
+      activities.push({ ...base, submitted: false, time_finished: null, status: 'link_broken' });
       continue;
     }
     try {

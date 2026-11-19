@@ -52,7 +52,7 @@ Body: `{ wallet, lms, site, moodle_token?, signature, issued_at }`.
 3. 1-1 binding: KV `subject:<keccak(site|userid)> → wallet` and `link:<wallet> → {lms, site, userid, subject_hash, token_enc}`. If the subject is already bound to another wallet, return `409`. A wallet can switch to another subject only when it has no Open challenges left.
 4. The token is AES-GCM encrypted (random 12-byte IV), **never logged** and never returned to the client.
 - `DELETE /link` (signed): users delete their own token.
-- `GET /link/:wallet`: returns `{lms, site, linked: true}` and nothing else.
+- `GET /link/:wallet`: returns `{lms, site, linked: true}` for an active link, or `{linked: false}`. The browser reads this again after reload.
 
 ## LmsAdapter
 ```ts
@@ -90,7 +90,7 @@ Result per participant: `{account, stake, completed, reason: 'ok'|'not_linked'|'
 3. Get participants from `Joined(id, …)` logs, scanning from `DEPLOY_BLOCK` in 2,000-block chunks (the public Fuji RPC limits ranges). Cache the scanned block pointer in KV. Cross-check `stake_of` on-chain for each participant.
 4. Evaluate, build the tree, upload the evidence, **then** send `settle`. Wait for the receipt. On success write `settled:<id>` to KV.
 5. Simulate before sending (`simulateContract`). A `WrongStatus` revert means it is already settled → mark as done.
-6. After Finalized/Expired: delete `token_enc` of wallets with no Open challenges left (cleanup in cron).
+6. After Finalized/Expired: clear `token_enc` only after a matching Moodle round closes and the wallet has no unsettled challenges. A token linked after that round's closure remains available for the next round.
 7. Cron also calls `finalize(id)` when due (and `collect_treasury` if there is a `treasury_due`). Anyone can call these; the oracle just helps.
 
 ## Faucet (`POST /faucet`)

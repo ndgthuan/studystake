@@ -42,7 +42,7 @@ function fake_session(app_id: string) {
 }
 
 /** Answers every Privy and WalletConnect request in the browser. Anything not listed here gets a 404. */
-export async function stub_privy_server(page: Page, app_id: string): Promise<void> {
+export async function stub_privy_server(page: Page, app_id: string, google_enabled = true): Promise<void> {
   await page.route(/privy\.io|walletconnect|reown/, (route) => {
     const url = route.request().url();
     if (url.includes(`/api/v1/apps/${app_id}`)) {
@@ -52,7 +52,7 @@ export async function stub_privy_server(page: Page, app_id: string): Promise<voi
           name: 'StudyStake test',
           wallet_auth: true,
           email_auth: true,
-          google_oauth: true,
+          google_oauth: google_enabled,
           allowlist_config: { error_title: null, error_detail: null, cta_text: null, cta_link: null },
           embedded_wallet_config: {
             create_on_login: 'off',

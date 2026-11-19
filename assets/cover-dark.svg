@@ -20,7 +20,7 @@
 <rect width="1280" height="400" fill="url(#glow)"/>
 <rect x="80" y="112" width="56" height="6" rx="3" fill="#E84142"/>
 <text x="80" y="200" font-size="84" font-weight="800" fill="#fafafa" letter-spacing="-2">StudyStake</text>
-<text x="80" y="252" font-size="30" fill="#a1a1aa">Commit to studying. Never lose your principal.</text>
+<text x="80" y="252" font-size="30" fill="#a1a1aa">Stake on a course. Track your work. Verify the result.</text>
 <text x="80" y="300" font-size="20" fill="#a1a1aa">Stake USDC on your Moodle deadlines on Avalanche.</text>
 <g class="card">
   <rect x="780" y="78" width="420" height="244" rx="20" fill="#111111" stroke="#262626" stroke-width="1.5"/>

@@ -10,8 +10,8 @@ const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? '';
 const PRIVY_LIGHT_BACKGROUND = '#FFFFFF';
 
 const THEMES = [
-  { saved: 'light', background: 'rgb(255, 255, 255)', icon: '☾', color: '#ffffff' },
-  { saved: 'dark', background: 'rgb(0, 0, 0)', icon: '☀', color: '#000000' },
+  { saved: 'light', background: 'rgb(247, 245, 237)', icon: '☾', color: '#f7f5ed' },
+  { saved: 'dark', background: 'rgb(25, 32, 47)', icon: '☀', color: '#19202f' },
 ] as const;
 
 const theme_button = (page: Page) => page.getByRole('button', { name: /^(Sáng\/Tối|Light\/Dark)$/ });
@@ -24,6 +24,12 @@ const theme_colors = (page: Page) =>
   page.evaluate(() =>
     Array.from(document.querySelectorAll('meta[name="theme-color"]')).map((m) => m.getAttribute('content')),
   );
+
+async function start_in_dark(page: Page) {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('ss_theme')) localStorage.setItem('ss_theme', 'dark');
+  });
+}
 
 /** Sets localStorage before any page script runs, on this and every later navigation. */
 async function save_prefs(page: Page, prefs: Record<string, string>): Promise<void> {
@@ -95,6 +101,7 @@ for (const { saved, background, icon, color } of THEMES) {
 }
 
 test('toggling the theme survives a reload, in both directions', async ({ page }) => {
+  await start_in_dark(page);
   await page.goto('/');
   await wait_for_hydration(page);
 
@@ -102,48 +109,50 @@ test('toggling the theme survives a reload, in both directions', async ({ page }
   await expect(theme_button(page)).toHaveText('☾');
   await page.reload();
   await expect(theme_button(page)).toHaveText('☾');
-  expect(await body_background(page)).toBe('rgb(255, 255, 255)');
+  expect(await body_background(page)).toBe('rgb(247, 245, 237)');
 
   await wait_for_hydration(page);
   await theme_button(page).click();
   await expect(theme_button(page)).toHaveText('☀');
   await page.reload();
   await expect(theme_button(page)).toHaveText('☀');
-  expect(await body_background(page)).toBe('rgb(0, 0, 0)');
+  expect(await body_background(page)).toBe('rgb(25, 32, 47)');
 });
 
 test('the browser UI color follows the toggle, in both directions, and survives a reload', async ({ page }) => {
+  await start_in_dark(page);
   await page.goto('/');
   await wait_for_hydration(page);
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#19202f']);
 
   await theme_button(page).click();
   await expect(theme_button(page)).toHaveText('☾');
-  expect(await theme_colors(page)).toEqual(['#ffffff']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
   await page.reload();
   await wait_for_hydration(page);
-  expect(await theme_colors(page)).toEqual(['#ffffff']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
 
   await theme_button(page).click();
   await expect(theme_button(page)).toHaveText('☀');
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#19202f']);
   await page.reload();
   await wait_for_hydration(page);
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#19202f']);
 });
 
 test('a color set by the toggle stays right after moving to another page', async ({ page }) => {
+  await start_in_dark(page);
   await page.goto('/');
   await wait_for_hydration(page);
 
   await theme_button(page).click();
   await expect(theme_button(page)).toHaveText('☾');
   await go_to_challenges(page);
-  expect(await theme_colors(page)).toEqual(['#ffffff']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
 
   await theme_button(page).click();
   await expect(theme_button(page)).toHaveText('☀');
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#19202f']);
 });
 
 test('a saved color stays right after moving to another page', async ({ page }) => {
@@ -152,11 +161,11 @@ test('a saved color stays right after moving to another page', async ({ page }) 
   await wait_for_hydration(page);
 
   await go_to_challenges(page);
-  expect(await theme_colors(page)).toEqual(['#ffffff']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
 
   await theme_button(page).click();
   await expect(theme_button(page)).toHaveText('☀');
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#19202f']);
 });
 
 test('saved language applies without a hydration failure', async ({ page }) => {
@@ -178,22 +187,22 @@ test('saved language is on <html> before React hydrates', async ({ page }) => {
   expect(await html_lang(page)).toBe('en');
 });
 
-test('with nothing saved the page is Vietnamese and dark', async ({ page }) => {
+test('with nothing saved the page is Vietnamese and light', async ({ page }) => {
   await page.goto('/');
   await wait_for_hydration(page);
 
   expect(await html_lang(page)).toBe('vi');
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
 });
 
-test('unknown saved values fall back to Vietnamese and dark', async ({ page }) => {
+test('unknown saved values fall back to Vietnamese and light', async ({ page }) => {
   await save_prefs(page, { ss_lang: 'fr', ss_theme: 'sepia' });
   await page.goto('/');
   await wait_for_hydration(page);
 
   await expect(lang_button(page)).toHaveText('EN');
   expect(await html_lang(page)).toBe('vi');
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
 });
 
 test('<html lang> follows the toggle, in both directions, and survives a reload and a page change', async ({ page }) => {
@@ -220,7 +229,7 @@ test('<html lang> follows the toggle, in both directions, and survives a reload 
   expect(await html_lang(page)).toBe('vi');
 });
 
-test('unusable localStorage leaves the page dark and raises no error', async ({ page }) => {
+test('unusable localStorage leaves the page light and raises no error', async ({ page }) => {
   const page_errors: string[] = [];
   page.on('pageerror', (e) => page_errors.push(e.message));
   await block_app_scripts(page);
@@ -231,10 +240,10 @@ test('unusable localStorage leaves the page dark and raises no error', async ({ 
   });
   await page.goto('/');
 
-  expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe('dark');
-  expect(await body_background(page)).toBe('rgb(0, 0, 0)');
+  expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe('light');
+  expect(await body_background(page)).toBe('rgb(247, 245, 237)');
   expect(await html_lang(page)).toBe('vi');
-  expect(await theme_colors(page)).toEqual(['#000000']);
+  expect(await theme_colors(page)).toEqual(['#f7f5ed']);
   expect(page_errors).toEqual([]);
 });
 
@@ -253,6 +262,16 @@ test.describe('with Privy enabled', () => {
     await stub_privy_server(page, PRIVY_APP_ID);
   });
 
+  for (const enabled of [true, false]) {
+    test(`Google login follows dashboard setting (${enabled}) and keeps email available`, async ({ page }) => {
+      await stub_privy_server(page, PRIVY_APP_ID, enabled);
+      await page.goto('/');
+      await login_button(page).click();
+      await expect(login_modal(page).getByPlaceholder('your@email.com')).toBeVisible();
+      await expect(login_modal(page).getByRole('button', { name: 'Google' })).toHaveCount(enabled ? 1 : 0);
+    });
+  }
+
   test('the login modal uses a saved light theme', async ({ page }) => {
     await save_prefs(page, { ss_theme: 'light' });
     await page.goto('/');
@@ -263,6 +282,7 @@ test.describe('with Privy enabled', () => {
   });
 
   test('the login modal follows the toggle, in both directions', async ({ page }) => {
+    await start_in_dark(page);
     await page.goto('/');
     await wait_for_hydration(page);
 
@@ -282,6 +302,7 @@ test.describe('with Privy enabled', () => {
 
   test('toggling keeps the wallet connected and does not remount the page', async ({ page }) => {
     await install_stub_wallet(page);
+    await start_in_dark(page);
     await page.goto('/');
 
     await login_button(page).click();

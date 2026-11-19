@@ -9,11 +9,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { use_ui } from '@/hooks/use_ui';
 import { use_tx } from '@/hooks/use_tx';
 import { invalidate_challenge_queries } from '@/hooks/use_challenge';
-import { addresses, abis, public_client, type PhaseName } from '@/lib/contracts';
+import { addresses, abis, public_client, read_event_history, type PhaseName } from '@/lib/contracts';
 import { oracle } from '@/lib/oracle';
-import { format_usdc } from '@/lib/usdc';
 import { t } from '@/lib/i18n';
-import { DEPLOY_FROM_BLOCK } from '@/lib/config';
+import { PayoutLines } from './payout_lines';
 import { TxStatusLine } from './tx_status';
 
 /** Gas buffer on top of the estimate. claim() forwards a fixed 300k to the badge and checks gasleft itself. */
@@ -48,13 +47,16 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
     queryKey: ['claim_receipt', id.toString(), wallet ?? null],
     enabled: !!wallet && claimable_phase,
     queryFn: async () => {
-      const logs = await public_client.getLogs({
+      const already_claimed = await public_client.readContract({
+        address: addresses.manager, abi: abis.manager, functionName: 'claimed', args: [id, wallet!],
+      });
+      if (!already_claimed) return null;
+      const logs = await read_event_history((fromBlock, toBlock) => public_client.getLogs({
         address: addresses.manager,
         event: claimed_event,
         args: { id, account: wallet as Address },
-        fromBlock: DEPLOY_FROM_BLOCK,
-        toBlock: 'latest',
-      });
+        fromBlock, toBlock,
+      }));
       const log = logs[0];
       if (!log) return null;
       return {
@@ -78,8 +80,8 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
         args: [id, acc],
       })) as bigint;
       if (stake === 0n) return null;
-      // Completed-or-not comes from the oracle proof. Without a proof the account claims as not completed.
-      const proof_body = await oracle.get_proof(Number(id), acc).catch(() => null);
+      // Only an expired challenge can return principal without consulting the completion record.
+      const proof_body = phase === 'Expired' ? null : await oracle.get_proof(Number(id), acc);
       const completed = proof_body?.completed ?? false;
       const [principal_out, reward] = (await public_client.readContract({
         address: addresses.manager,
@@ -95,15 +97,14 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
   // Render nothing while loading. A loading line here stayed on screen after the panel's data resolved to "no claim".
   if (receipt_q.isLoading || preview_q.isLoading) return null;
 
+  if (receipt_q.isError || preview_q.isError) return <p role="status">{t(lang,'error_load')}</p>;
   const r = receipt_q.data;
   if (r) {
     return (
       <section className="card flex flex-col gap-3 p-4">
         <h2 className="font-semibold">{t(lang, 'claim')}</h2>
-        <div className="num text-sm">
-          {lang === 'vi' ? 'Đã nhận' : 'Claimed'}: {lang === 'vi' ? 'gốc' : 'principal'} {format_usdc(r.principal_out)} USDC
-          {r.completed ? ` · ${lang === 'vi' ? 'thưởng' : 'reward'} ${format_usdc(r.reward)} USDC` : ''}
-        </div>
+        <strong>{lang === 'vi' ? 'Đã nhận' : 'Claimed'}</strong>
+        <PayoutLines lang={lang} principal={r.principal_out} reward={r.reward} />
         <Link href="/me" className="underline text-sm">
           {t(lang, 'badge_title')}
         </Link>
@@ -136,14 +137,7 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
   return (
     <section className="card flex flex-col gap-3 p-4">
       <h2 className="font-semibold">{t(lang, 'claim')}</h2>
-      <div className="num grid grid-cols-2 gap-2 text-sm">
-        <span className="text-[var(--muted)]">{t(lang, 'completed')}</span>
-        <span>{p.completed ? '✓' : '✗'}</span>
-        <span className="text-[var(--muted)]">USDC</span>
-        <span>
-          {format_usdc(p.principal_out)} + {format_usdc(p.reward)}
-        </span>
-      </div>
+      <PayoutLines lang={lang} principal={p.principal_out} reward={p.reward} />
       <button
         type="button"
         className="btn"

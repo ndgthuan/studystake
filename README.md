@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/cover-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/cover-light.svg">
-    <img src="assets/cover-light.svg" alt="StudyStake: Commit to studying. Never lose your principal." width="100%">
+    <img src="assets/cover-light.svg" alt="StudyStake course challenges and verifiable results." width="100%">
   </picture>
 </p>
 
@@ -10,6 +10,7 @@
   <b><a href="#why-studystake">Why</a></b> &nbsp;·&nbsp;
   <b><a href="#features">Features</a></b> &nbsp;·&nbsp;
   <b><a href="#how-it-works">How it works</a></b> &nbsp;·&nbsp;
+  <b><a href="#product-tour">Product tour</a></b> &nbsp;·&nbsp;
   <b><a href="#guarantees">Guarantees</a></b> &nbsp;·&nbsp;
   <b><a href="#quick-start">Quick start</a></b>
 </p>
@@ -33,7 +34,7 @@
 
 Students miss Moodle quizzes and assignment deadlines. Reminder apps are easy to ignore. Betting-style commitment apps such as StickK and Beeminder add real stakes, but they feel like gambling, and losing real money puts many people off trying them.
 
-StudyStake takes a different route. A student stakes between 1 and 100 USDC on a challenge such as "CSC10002 quiz, weeks 10 to 12". Finishing the work returns the principal plus a share of the pool's yield and a sponsor bonus. Missing the deadline still returns 100% of the principal. Only the yield and bonus are shared among completers.
+StudyStake takes a different route. A student stakes an amount within the challenge's displayed range. One example is the CSC10002 quiz challenge for weeks 10 to 12. Finishing the work earns a share of the pool's yield and sponsor bonus. All participants can claim their principal after finalization, subject to any loss in the underlying vault.
 
 Stakes, yield shares, and proofs are settled through a Merkle root on Avalanche, so anyone can verify the payout math instead of trusting a company that holds the money.
 
@@ -48,7 +49,7 @@ Stakes, yield shares, and proofs are settled through a Merkle root on Avalanche,
         <img src="assets/feature-noloss-light.svg" alt="Stake flows into a yield vault and returns with yield" width="100%">
       </picture>
       <h3>No-loss staking</h3>
-      <p>Your stake sits in an ERC-4626 yield vault. Your principal always comes back; only the yield is shared among students who finished.</p>
+      <p>Your stake sits in an ERC-4626 yield vault. Missing a deadline affects your share of yield and bonuses. Principal is available to claim even after a missed deadline, subject to any vault loss.</p>
     </td>
     <td align="center" valign="top" width="50%">
       <picture>
@@ -74,10 +75,10 @@ Stakes, yield shares, and proofs are settled through a Merkle root on Avalanche,
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="assets/feature-onboarding-dark.svg">
         <source media="(prefers-color-scheme: light)" srcset="assets/feature-onboarding-light.svg">
-        <img src="assets/feature-onboarding-light.svg" alt="Google sign-in, embedded wallet, then one signature" width="100%">
+        <img src="assets/feature-onboarding-light.svg" alt="Privy sign-in, embedded wallet, and permit signature" width="100%">
       </picture>
-      <h3>One-transaction onboarding</h3>
-      <p>Sign in with Google through Privy, then stake with a single EIP-2612 permit signature. No seed phrase, no separate approval.</p>
+      <h3>Email sign-in and permit staking</h3>
+      <p>Sign in with an email code or connect a wallet. Privy shows the providers enabled for the deployment. Permit-enabled tokens let students submit a single staking transaction.</p>
     </td>
   </tr>
 </table>
@@ -94,7 +95,7 @@ Stakes, yield shares, and proofs are settled through a Merkle root on Avalanche,
 
 **Components**
 
-- **Web app** (`web/`): Next.js App Router with Privy sign-in, wagmi and viem, and Vietnamese and English UI.
+- **Web app** (`web/`): Next.js App Router with Privy sign-in, wagmi and viem, and a bilingual course notebook. Light mode is the default, with a saved light or dark preference.
 - **Oracle** (`oracle/`): Cloudflare Worker in TypeScript. It has a Moodle adapter, a Demo LMS adapter, an evaluator, the Merkle builder, the AVAX faucet, and a cron job that settles challenges.
 - **Evidence store:** public evidence JSON in Cloudflare R2. Only its hash goes on-chain, and the evidence contains no names or student IDs.
 - **StudyStakeManager** (`contracts/`): holds challenges, stakes, sponsor bonuses, settlement, disputes, and claims.
@@ -103,14 +104,14 @@ Stakes, yield shares, and proofs are settled through a Merkle root on Avalanche,
 
 **Lifecycle**
 
-1. **Join.** Sign in, link your Moodle token, and stake 1 to 100 USDC with one `join_with_permit` transaction. The stake goes into the vault and earns yield while the deadline runs.
-2. **Submit.** Complete the quiz or assignment in Moodle as usual.
+1. **Join.** Sign in or connect a wallet, link Moodle or Demo LMS, and stake within the challenge limit. The app uses `join_with_permit` for permit-enabled tokens and supports approval followed by a join for other tokens.
+2. **Submit.** Complete the required quiz or assignment and check your progress on the challenge page. Demo LMS challenges accept demo submissions in the web app.
 3. **Settle.** After the end time, the oracle reads submission status, builds the Merkle root of completers, and calls `settle(root, completed_count, completed_stake, evidence_hash)`.
 4. **Dispute window.** Anyone who staked can dispute the result during the window (24 hours in production, 10 minutes in the demo). A guardian can then replace the root.
 5. **Finalize.** Anyone can call `finalize`. It redeems all vault shares and fixes the reward pot.
 6. **Claim.** Each student claims once. Completers receive principal, a yield share, and the reward. The badge is minted on first completion, and the streak goes up by one.
 
-Principle: **everyone keeps their principal.** Yield and rewards are shared only among students who completed their work.
+Everyone can claim their share of the vault principal. Only students who completed their work receive a share of the yield and sponsor bonus.
 
 ### Payout example
 
@@ -126,41 +127,35 @@ Principle: **everyone keeps their principal.** Yield and rewards are shared only
 
 ## Product tour
 
+Open the [CSC10002 Demo LMS challenge on Fuji](https://studystake-puce.vercel.app/challenges/1). You can browse the challenge and its evidence without connecting a wallet. The screenshots below show the course-notebook UI running against the same Fuji round.
+
+<p align="center">
+  <img src="web/screenshots/course-notebook-detail.jpg" alt="CSC10002 challenge notebook showing the course deadline, two activities, verified result, and settlement totals" width="100%">
+</p>
+
+1. **Browse the course notebook** from the home page or filter the challenge catalog by status.
+2. **Open a challenge** to see its deadline, required activities, LMS progress, and settlement slip. The slip distinguishes principal, estimated rewards, and final rewards.
+3. **Replay submissions** on a finalized challenge with verified evidence. The replay uses recorded submission times and supports manual stepping with reduced motion.
+4. **Verify the result** to compare the evidence hash and Merkle root against Fuji and open the finalization transaction in Snowtrace. [Verification page](https://studystake-puce.vercel.app/verify/1)
+5. **Open My stakes** to see in-progress challenges, challenges awaiting settlement, claimable stakes, claim history, and your badge. This page uses the connected wallet. [My stakes](https://studystake-puce.vercel.app/me)
+
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="web/screenshots/landing_1280_dark_cropped.png" alt="Landing page, desktop dark" width="100%">
-      <sub><b>Landing.</b> The entry point: challenges, the pitch in one line, and sign-in.</sub>
+      <img src="web/screenshots/course-notebook-home.jpg" alt="StudyStake home page in the default light theme" width="100%">
+      <sub><b>Home.</b> Open the course notebook and see on-chain activity.</sub>
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="web/screenshots/challenge_detail_1280_dark.png" alt="Challenge detail, desktop dark" width="100%">
-      <sub><b>Challenge detail.</b> Stake range, deadline, pool size, and the state you are in.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="50%">
-      <img src="web/screenshots/verify_1280_dark.png" alt="Verify page, desktop dark" width="100%">
-      <sub><b>Verify.</b> Anyone can re-check the oracle's evidence in the browser.</sub>
-    </td>
-    <td align="center" valign="top" width="50%">
-      <img src="web/screenshots/me_1280_dark.png" alt="Profile, desktop dark" width="100%">
-      <sub><b>Profile.</b> Your account view at desktop width.</sub>
+      <img src="web/screenshots/course-notebook-verify.jpg" alt="Evidence verification page with matching hashes and a finalization transaction link" width="100%">
+      <sub><b>Verify.</b> Compare both commitments and inspect the transaction.</sub>
     </td>
   </tr>
 </table>
 
-<table>
-  <tr>
-    <td align="center" valign="top">
-      <img src="web/screenshots/challenge_detail_375_dark.png" width="240" alt="Challenge detail, mobile dark">
-    </td>
-    <td align="center" valign="top">
-      <img src="web/screenshots/me_375_dark.png" width="240" alt="Profile, mobile dark">
-    </td>
-  </tr>
-</table>
-
-<p align="center"><sub>More captures, including light mode, the admin view, the challenge list, and the Moodle link, are in <a href="web/screenshots/"><code>web/screenshots/</code></a>.</sub></p>
+<details>
+  <summary>Mobile challenge view</summary>
+  <p align="center"><img src="web/screenshots/course-notebook-mobile.jpg" alt="Mobile layout with the deadline, activities, settlement slip, and result stacked vertically" width="390"></p>
+</details>
 
 ## Guarantees
 
@@ -183,8 +178,9 @@ Full threat list and residual risks: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.
 - [x] **Soulbound badge (ERC-721 + ERC-5192).** Completion streaks are on-chain and non-transferable.
 - [x] **Live on Fuji.** Contracts, oracle and web have public endpoints. The first tUSDC round reached claim. See [Live on Fuji](#live-on-fuji).
 - [ ] **One-transaction stake via EIP-2612 `permit`.** The Circle USDC path passed a Fuji-fork browser test. Public Fuji verification needs a `join_with_permit` receipt from the web flow and a check that no separate approval was sent.
-- [ ] **AVAX gas faucet for new users.** The Fuji configuration sets the grant to 0.001 AVAX, and the web displays the confirmed receipt. Public Fuji verification needs the faucet transfer to a first-time Google sign-in wallet. See the [Fuji runbook](docs/DEPLOY_FUJI.md).
-- [ ] **Privy embedded wallet (Google sign-in).** Running on the live site with a real App ID; a full Google sign-in round by a real user is still to be recorded.
+- **AVAX gas faucet for new users.** The repository configures a 0.001 AVAX grant for eligible Fuji wallets. The web shows the confirmed transfer when the faucet succeeds. See the [Fuji runbook](docs/DEPLOY_FUJI.md).
+- [x] **Privy email sign-in and embedded wallet.** An email-code sign-in and session restore were verified on the live site.
+- [ ] **Google sign-in on public Fuji.** Google must be enabled in the deployed Privy app before the end-to-end Google sign-in flow can be verified.
 - [ ] **Aave V3 adapter.** A join-to-claim lifecycle with real StataToken yield passed on a local C-Chain mainnet fork. The public app on Fuji uses simulated yield.
 - [ ] **x402 Study Credential API.** Paid endpoint and verification UI implemented. Circle USDC settlement has passed on a local Fuji fork. A public Fuji payment and Snowtrace receipt are pending.
 - [ ] **StudyNet L1 for the school (ICM, Builder Console).** Roadmap, not started.
@@ -239,7 +235,7 @@ Two students staked tUSDC. Student A finished both demo activities, student B fi
 > Honesty notes:
 > - The automated tests run on **local Anvil**. One full round has also run on **Fuji**, driven by scripts with throwaway test wallets and tUSDC, see [Live on Fuji](#live-on-fuji).
 > - **Yield is simulated** on testnet by `MockYieldVault`. It is not real market yield.
-> - **Privy runs with a real App ID**, but the Fuji round above used plain wallets, not a Google sign-in.
+> - **The documented Fuji round used test wallets.** Email sign-in and session restore were verified separately. Google sign-in depends on the deployment’s Privy settings.
 > - Rewards depend on an honest oracle until zkTLS replaces it.
 
 ## Quick start
@@ -280,7 +276,7 @@ Two students staked tUSDC. Student A finished both demo activities, student B fi
    npm run dev
    ```
 
-   Create `web/.env.local` for your keys. Do not commit it.
+   Create `web/.env.local` with the public chain, RPC, oracle and optional Privy settings in the [Fuji runbook](docs/DEPLOY_FUJI.md). Without a Privy App ID the local app uses an injected wallet. Use `http://localhost:3000` when pointing this app at the public Fuji oracle, which checks the browser origin.
 
 > [!IMPORTANT]
 > `.dev.vars` and `.env.local` hold secrets. Both are git-ignored. Keep them out of commits and screenshots.

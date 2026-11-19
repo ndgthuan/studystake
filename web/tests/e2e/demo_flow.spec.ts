@@ -78,6 +78,7 @@ test('demo challenge: join, sponsor, yield, submit, settle, finalize, claim, ver
     for (const instance of [1, 2]) {
       await page.getByRole('button', { name: new RegExp(`(Làm bài demo|Submit demo) #${instance}$`) }).click();
       await expect(page.getByText('DEMO · OK')).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByRole('progressbar', { name: /Tiến độ|Progress/ })).toHaveAttribute('aria-valuenow', String(instance));
     }
     await ctx.close();
   }
@@ -139,7 +140,16 @@ test('demo challenge: join, sponsor, yield, submit, settle, finalize, claim, ver
   {
     const ctx = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' });
     const page = await ctx.newPage();
-    await page.goto(`/verify/${id}`);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`/challenges/${id}`);
+    await page.getByRole('button', { name: /Xem lại lượt nộp|Replay submissions/ }).click();
+    const replay = page.getByRole('progressbar', { name: /Tiến độ phát lại|Playback progress/ });
+    await expect(replay).toHaveAttribute('aria-valuenow', '0');
+    for (const count of [1, 2]) {
+      await page.getByRole('button', { name: /Mốc tiếp|Next event/ }).click();
+      await expect(replay).toHaveAttribute('aria-valuenow', String(count));
+    }
+    await page.getByRole('link', { name: /Xác minh kết quả|Verify result/ }).click();
     await expect(page.getByText(/Khớp với on-chain|Matches on-chain/).first()).toBeVisible({ timeout: 60_000 });
     await ctx.close();
   }

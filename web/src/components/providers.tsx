@@ -50,14 +50,14 @@ export function Providers({ children }: { children: ReactNode }) {
   // The first client render must match the server HTML, which cannot know the saved values. Reading localStorage in
   // the useState initializers instead would make hydration fail for anyone with a saved preference.
   const [lang, set_lang_state] = useState<Lang>('vi');
-  const [theme, set_theme_state] = useState<Theme>('dark');
+  const [theme, set_theme_state] = useState<Theme>('light');
 
   // These two only update React state: the inline script in layout.tsx has already put the saved values on the page.
-  // An effect that wrote <html> from state would first write the initial 'vi' and 'dark' here, and the browser UI would
-  // blink black for anyone who saved light.
+  // An effect that wrote <html> from state would first write the initial 'vi' and 'light' here, and the browser UI would
+  // flash light for anyone who saved dark.
   useEffect(() => {
     set_lang_state(read_pref<Lang>('ss_lang', ['vi', 'en'], 'vi'));
-    set_theme_state(read_pref<Theme>('ss_theme', ['dark', 'light'], 'dark'));
+    set_theme_state(read_pref<Theme>('ss_theme', ['dark', 'light'], 'light'));
   }, []);
 
   const set_lang = (l: Lang) => {
@@ -88,7 +88,8 @@ export function Providers({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        loginMethods: ['google', 'email', 'wallet'],
+        // Privy uses the methods enabled for this app in its dashboard.
+        // Overriding this list can offer a provider that the auth server rejects.
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
         appearance: { theme },
         defaultChain: active_chain,

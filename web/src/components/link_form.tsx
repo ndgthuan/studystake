@@ -11,6 +11,7 @@ import { link_message, unlink_message } from '@/lib/messages';
 import { DEFAULT_MOODLE_SITE } from '@/lib/config';
 import { explain_error } from '@/lib/errors';
 import { CredentialConsent } from './credential_consent';
+import { AccountGate } from './account_gate';
 
 export function LinkForm() {
   const { lang } = use_ui();
@@ -24,7 +25,7 @@ export function LinkForm() {
   const [msg, set_msg] = useState<string | null>(null);
   const [busy, set_busy] = useState(false);
 
-  if (!address) return <p className="text-[var(--muted)]">{t(lang, 'connect')}</p>;
+  if (!address) return <AccountGate page="link" />;
 
   async function link() {
     if (!client || !address) return;

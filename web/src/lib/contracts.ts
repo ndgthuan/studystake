@@ -2,7 +2,7 @@
 import { createPublicClient, http, type Address } from 'viem';
 import deployments from '@/generated/deployments.json';
 import { manager_abi, badge_abi, vault_abi, token_abi } from '@/generated/abi';
-import { active_chain, RPC_URL } from './config';
+import { active_chain, DEPLOY_FROM_BLOCK, RPC_URL } from './config';
 
 export const addresses = {
   manager: deployments.manager as Address,
@@ -82,4 +82,19 @@ export async function read_phase(id: bigint): Promise<PhaseName> {
     args: [id],
   });
   return PHASE_NAMES[Number(idx)] ?? 'Joining';
+}
+
+/** The public Fuji RPC accepts at most 50,000 blocks per log query. Keep each scan on one fixed tip. */
+export async function read_event_history<T>(
+  read_range: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>,
+): Promise<T[]> {
+  const tip = await public_client.getBlockNumber();
+  const page_size = 50_000n;
+  const history: T[] = [];
+  for (let start = DEPLOY_FROM_BLOCK; start <= tip; start += page_size) {
+    const end = start + page_size - 1n;
+    const page = await read_range(start, end < tip ? end : tip);
+    history.push(...page);
+  }
+  return history;
 }

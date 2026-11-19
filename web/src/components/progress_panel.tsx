@@ -9,12 +9,14 @@ import type { MoodleAccess } from '@/hooks/use_moodle_session';
 import { format_time } from '@/lib/format';
 import { demo_submit_message } from '@/lib/messages';
 import { SubmissionReplay } from './submission_replay';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { moodle_quiz_url } from '@/lib/moodle';
 import type { Evidence } from '@/lib/verify';
 import { useActionNotice } from './action_notices';
 
 interface Props {
   id: bigint;
+  now: number;
   wallet: `0x${string}` | null;
   accepting_demo: boolean;
   meta?: MetadataDoc;
@@ -41,13 +43,15 @@ function verdict_label(reason: string, lang: Lang) {
   return known ?? t(lang, reason === 'link_broken' ? 'progress_link_broken' : 'progress_unavailable');
 }
 
-export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed, enrolled, evidence, final, finalized, moodle_access}: Props) {
+export function ProgressPanel({id, now, wallet, accepting_demo, meta, metadata_failed, enrolled, evidence, final, finalized, moodle_access}: Props) {
   const {lang} = use_ui();
   const vi = lang === 'vi';
   const moodle = meta?.lms === 'moodle';
   const token = moodle_access.token;
   const [authorizing, set_authorizing] = useState(false);
   const [auth_error, set_auth_error] = useState(false);
+  const [celebrate, set_celebrate] = useState(false);
+  const last_eligible = useRef<{ scope: string; count: number } | null>(null);
   const q = useQuery({
     queryKey: ['progress', id.toString(), wallet, moodle ? moodle_access.generation : null],
     enabled: !!meta && !!wallet && enrolled && !(final && evidence) && (!moodle || !!token),
@@ -62,12 +66,25 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
   const link_broken = !archived && q.data?.activities.some(a => ['link_broken', 'not_linked'].includes(a.reason));
   const unavailable = !archived && q.data?.activities.some(a => ['link_broken', 'lms_error', 'not_linked'].includes(a.reason));
   const recorded_count = unavailable ? undefined : current?.filter(a => a.submitted).length;
-  const eligible_count = !archived && !unavailable ? q.data?.activities.filter(a => a.eligible).length : undefined;
+  const eligible_count = !archived && !q.isError && !unavailable ? q.data?.activities.filter(a => a.eligible).length : undefined;
   const count = meta?.activities.length;
   const replay_entry = wallet ? entry : evidence?.entries.find(e => e.completed) ?? evidence?.entries[0];
   const source = meta?.lms === 'moodle' ? 'Moodle' : 'Demo LMS';
   const course_url = meta?.lms === 'moodle' && /^https:\/\//i.test(meta.site)
     ? `${meta.site.replace(/\/+$/,'')}/course/view.php?id=${meta.course_id}` : null;
+  const can_open_moodle = enrolled && accepting_demo && !link_broken;
+  const open_assignments = meta?.activities.some(task => task.kind === 'assign' && task.due > now);
+
+  useEffect(() => {
+    if (eligible_count === undefined || !wallet) return;
+    const scope = `${id}:${wallet}:${moodle_access.generation ?? ''}`;
+    const previous = last_eligible.current;
+    last_eligible.current = { scope, count: eligible_count };
+    if (previous?.scope !== scope || eligible_count <= previous.count) return;
+    set_celebrate(true);
+    const timeout = window.setTimeout(() => set_celebrate(false), 850);
+    return () => { window.clearTimeout(timeout); set_celebrate(false); };
+  }, [eligible_count, id, moodle_access.generation, wallet]);
 
   async function authorize_progress() {
     set_authorizing(true);
@@ -82,7 +99,7 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
   }
 
   return (
-    <section className="folio tasks-sheet">
+    <section className="folio tasks-sheet" id="submission-checklist">
       <div className="sheet-head"><h2>{vi ? 'Bài cần nộp' : 'Submission checklist'}</h2>
         {count !== undefined && <span className="sheet-index">{String(count).padStart(2,'0')} {vi ? 'bài' : 'tasks'}</span>}</div>
       {!meta && <p role="status">{t(lang,metadata_failed ? 'error_load' : 'loading')}</p>}
@@ -97,10 +114,14 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
         {wallet && recorded_count !== undefined && <div className="personal-progress">
           <span>{vi ? 'Bài đã ghi nhận' : 'Recorded submissions'} <b>{recorded_count}/{count}</b></span>
           {eligible_count !== undefined && <>
-            <span>{vi ? 'Bài đủ điều kiện' : 'Eligible submissions'} <b>{eligible_count}/{count}</b></span>
+            <span aria-live="polite">{vi ? 'Bài đủ điều kiện' : 'Eligible submissions'} <b className={celebrate ? 'eligibility-change' : undefined}>{eligible_count}/{count}</b></span>
             <div role="progressbar" aria-label={vi ? 'Bài đủ điều kiện' : 'Eligible submissions'} aria-valuemin={0} aria-valuemax={count} aria-valuenow={eligible_count}>
               <i style={{width:`${count ? 100 * eligible_count/count : 0}%`}} /></div>
           </>}
+        </div>}
+        {wallet && !archived && !q.isError && q.data && <div className="flex flex-wrap items-center gap-2 text-sm">
+          <small>{t(lang, 'progress_checked')} · <time dateTime={new Date(q.data.as_of * 1000).toISOString()}>{format_time(q.data.as_of, lang)}</time></small>
+          {!unavailable && <button type="button" className="btn btn-ghost" disabled={q.isFetching} onClick={() => void q.refetch()}>{t(lang, 'refresh_status')}</button>}
         </div>}
         <ol className="activity-rows">{meta.activities.map((task,i) => {
           const live = !archived && !q.isError ? q.data?.activities.find(a => a.instance_id === task.instance_id && a.kind === task.kind) : undefined;
@@ -108,11 +129,12 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
           const recorded = evidence?.entries.some(e => e.activities) ?
             evidence.entries.filter(e => e.activities?.some(a => a.instance_id === task.instance_id && a.submitted)).length : undefined;
           const eligible = live?.eligible;
+          const quiz = moodle && task.kind === 'quiz' && task.due > now && can_open_moodle ? moodle_quiz_url(meta.site, task.instance_id) : null;
           const status = live ? verdict_label(live.reason, lang) :
             previous?.submitted ? (vi ? `${source} đã ghi nhận` : `Recorded by ${source}`) : previous ? verdicts.missing[lang] : undefined;
           return <li key={`${task.kind}-${task.instance_id}`}>
             <span className={`task-number ${eligible ? 'recorded' : ''}`} aria-hidden="true">{eligible ? '✓' : String(i+1).padStart(2,'0')}</span>
-            <div><h3>{task.name}</h3><small>{task.kind === 'quiz' ? (vi ? 'Trắc nghiệm' : 'Quiz') : (vi ? 'Bài tập' : 'Assignment')} · {format_time(task.due,lang)}</small></div>
+            <div><h3>{quiz ? <a className="underline" href={quiz} target="_blank" rel="noreferrer">{task.name} ↗</a> : task.name}</h3><small>{task.kind === 'quiz' ? (vi ? 'Trắc nghiệm' : 'Quiz') : (vi ? 'Bài tập' : 'Assignment')} · {format_time(task.due,lang)}</small></div>
             {status ? <span className="activity-state">{status}</span> : !wallet && recorded !== undefined && <span className="activity-state">{recorded}/{evidence?.entries.length} {vi ? 'đã nộp' : 'submitted'}</span>}
           </li>;
         })}</ol>
@@ -125,7 +147,7 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
         </div>}
         {wallet && archived && !entry && <small>{vi ? 'Ví này không có trong danh sách kết quả.' : 'This wallet has no entry in the results.'}</small>}
         {link_broken && <Link className="record-link" href={`/link?challenge=${id}`}>{t(lang, 'link_title')} ↗</Link>}
-        {course_url && accepting_demo && <a className="btn task-cta" href={course_url} target="_blank" rel="noreferrer">{vi ? 'Mở Moodle' : 'Open Moodle'} ↗</a>}
+        {course_url && can_open_moodle && open_assignments && <a className="btn task-cta" href={course_url} target="_blank" rel="noreferrer">{vi ? 'Mở Moodle' : 'Open Moodle'} ↗</a>}
         {meta.lms === 'demo' && accepting_demo && wallet && enrolled &&
           <DemoSubmit id={id} wallet={wallet} activities={meta.activities.map(a => a.instance_id)} />}
       </>}

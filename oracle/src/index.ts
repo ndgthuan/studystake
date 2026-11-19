@@ -35,6 +35,7 @@ import {
   progress_cache_key,
   progress_user_error,
 } from './progress.ts';
+import { fetch_quiz_preview, parse_quiz_url } from './quiz_preview.ts';
 import { check_rate_limit } from './ratelimit.ts';
 import { check_session_assertion, issue_session, require_session, session_message, SESSION_ASSERTION_TTL_SECONDS } from './session.ts';
 import { participants_of, run_settle_job, type SettleDeps } from './settle.ts';
@@ -105,6 +106,7 @@ const preflight_schema = z.strictObject({
   wallet: wallet_schema,
   challenge_id: z.number().int().positive(),
 });
+const quiz_preview_schema = z.strictObject({ wallet: wallet_schema, url: z.string().trim().min(1).max(2048) });
 const NO_STORE = { 'cache-control': 'no-store' };
 const metadata_post_schema = z.strictObject({
   wallet: wallet_schema,
@@ -187,6 +189,7 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
   if (req.method === 'DELETE' && path === '/link') return handle_unlink(req, rt, now);
   if (req.method === 'POST' && path === '/session') return handle_session(req, rt, now);
   if (req.method === 'POST' && path === '/join/preflight') return handle_join_preflight(req, rt, now);
+  if (req.method === 'POST' && path === '/moodle/quiz-preview') return handle_quiz_preview(req, rt, now);
 
   if (req.method === 'GET' && parts[0] === 'link' && parts.length === 2) {
     const link = await get_link(rt.store.kv, parts[1]!);
@@ -406,6 +409,23 @@ async function handle_join_preflight(req: Request, rt: Runtime, now: number): Pr
 async function activity_link_info(rt: Runtime, link: LinkRecord, wallet: string, challenge_id: number): Promise<LinkInfo> {
   const token = link.token_enc === null ? null : await decrypt_token(link.token_enc, rt.cfg.token_enc_key);
   return { lms: link.lms, site: link.site, userid: link.userid, wallet, token, challenge_id };
+}
+
+async function handle_quiz_preview(req: Request, rt: Runtime, now: number): Promise<Response> {
+  const limited = await check_rate_limit(rt.store.kv, 'quiz_preview', client_ip(req), 10, 60, now);
+  if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
+  const body = await read_json(req, quiz_preview_schema);
+  await require_session(req, body.wallet, now, rt.cfg.token_enc_key);
+  const { site, lookup } = parse_quiz_url(body.url, rt.cfg);
+  if (!(await rt.port.has_creator_role(body.wallet))) throw new ApiError(403, 'not_creator', 'wallet lacks CREATOR_ROLE');
+  const link = await get_link(rt.store.kv, body.wallet);
+  if (link === null || link.token_enc === null || !link_matches_challenge(link, { lms: 'moodle', site })) {
+    throw new ApiError(403, 'link_broken', 'link an active Moodle account for this quiz site');
+  }
+  const token = await decrypt_token(link.token_enc, rt.cfg.token_enc_key).catch(() => {
+    throw new ApiError(503, 'moodle_unavailable', 'Moodle lookup is unavailable');
+  });
+  return json_response(await fetch_quiz_preview(site, token, lookup), 200, NO_STORE);
 }
 
 /** The student opts in or out of selling their credential. Both directions need a fresh, single-use wallet signature. */

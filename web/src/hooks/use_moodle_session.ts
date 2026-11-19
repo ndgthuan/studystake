@@ -10,9 +10,9 @@ export function use_moodle_session(wallet: `0x${string}` | undefined, now: numbe
   const active = session && session.wallet === wallet && session.expires_at > now ? session : null;
 
   async function authorize(force = false) {
-    if (active && !force) return active.token;
-    if (!wallet || !client) throw new Error('Wallet unavailable');
     const issued_at = Math.floor(Date.now() / 1000);
+    if (active && !force && active.expires_at > issued_at) return active.token;
+    if (!wallet || !client) throw new Error('Wallet unavailable');
     const message = `StudyStake Moodle session\nwallet: ${wallet.toLowerCase()}\norigin: ${new URL(ORACLE_URL).origin}\nissued_at: ${issued_at}`;
     const signature = await client.signMessage({ account: wallet, message });
     const next = await oracle.post_session({ wallet, issued_at, signature });

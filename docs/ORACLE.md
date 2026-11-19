@@ -59,6 +59,7 @@ Body: `{ wallet, lms, site, moodle_token?, signature, issued_at }`.
 - `POST /session` exchanges a fresh, origin-bound wallet signature for a short-lived bearer token. The web app keeps the token in memory and requests a new signature when the session expires.
 - `POST /join/preflight` checks that the signed-in wallet can read the required activities through its linked Moodle account. The web join form requires a successful check. On-chain settlement still evaluates each participant independently.
 - `GET /progress/:id/:wallet` requires the matching wallet's bearer token for a real Moodle challenge. It distinguishes a submission Moodle has recorded from one that meets the time and grade rules for settlement. Demo LMS progress remains available for the demo flow.
+- `POST /moodle/quiz-preview` takes `{wallet, url}` and requires the same session and `CREATOR_ROLE`. Standard Moodle quiz links resolve through `core_course_get_course_module` for `id` links or `core_course_get_course_module_by_instance` for `q` links. `mod_quiz_get_quizzes_by_courses` supplies the quiz title and the closing time visible to the linked account. The web form lets the creator review and edit the result before publishing.
 
 ## LmsAdapter
 ```ts

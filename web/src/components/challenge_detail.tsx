@@ -106,11 +106,12 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
       <CourseCover id={id.toString()} meta={meta} lang={lang} phase={phase} end={Number(ch.end_time)} />
       <div className="record-columns">
         <div className="record-main">
-          <ProgressPanel id={id} wallet={address ?? null} accepting_demo={phase === 'Joining' || phase === 'Running'}
+          <ProgressPanel id={id} wallet={address ?? null} now={now}
+            accepting_demo={(phase === 'Joining' || phase === 'Running') && now < Number(ch.end_time)}
             meta={meta} metadata_failed={metadata.isError} enrolled={enrolled} final={closed} finalized={phase === 'Finalized'}
             moodle_access={moodle_access}
             evidence={evidence.data?.verified ? evidence.data.evidence : undefined} />
-          <section className="folio result-sheet paper-on-scroll">
+          <section id="course-result" className="folio result-sheet paper-on-scroll">
             <div className="sheet-head"><h2>{vi ? 'Kết quả học phần' : 'Course result'}</h2>
               {verified && <span className="ink-stamp" role="status">✓ {vi ? 'Đã xác minh' : 'Verified'}</span>}
             </div>
@@ -132,6 +133,7 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
             <p className="receipt-scope">{vi ? 'Toàn bộ thử thách' : 'Whole challenge'}</p>
             <dl>
               <Info label={vi ? (closed ? 'Vốn gốc hoàn lại' : 'Vốn gốc đã cọc') : (closed ? 'Returnable principal' : 'Principal staked')} value={format_usdc(principal,6)} />
+              {ch.total_bonus > 0n && <Info label={vi ? 'Quỹ tài trợ đã góp' : 'Sponsor contributions'} value={format_usdc(ch.total_bonus,6)} />}
               <Info label={vi ? 'Thưởng ước tính' : 'Estimated rewards'} value={pot.estimated && has_estimate ? format_usdc(pot.amount,6) : '—'} />
               <Info label={vi ? 'Thưởng đã chốt' : 'Final rewards'} value={!pot.estimated ? format_usdc(pot.amount,6) : '—'} />
             </dl>
@@ -139,9 +141,9 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
             {committed && <Link className="btn receipt-cta" href={`/verify/${id}`}>{vi ? 'Xác minh kết quả' : 'Verify result'} <span>↗</span></Link>}
           </section>
           {phase === 'Joining' && (!address || stake.data === 0n) && (
-            !address ? <section className="folio"><h2>{vi ? 'Tham gia thử thách' : 'Join challenge'}</h2><WalletButton /></section> :
+            !address ? <section id="join" className="folio"><h2>{vi ? 'Tham gia thử thách' : 'Join challenge'}</h2><WalletButton /></section> :
             !meta ? <p role="status">{t(lang, metadata.isError ? 'error_load' : 'loading')}</p> :
-            needs_moodle_link ? <section className="folio">
+            needs_moodle_link ? <section id="join" className="folio">
               <h2>Moodle</h2>
               <p role="status">{t(lang, lms_link.isPending ? 'loading' : lms_link.isError ? 'error_load' : 'moodle_join_required')}</p>
               <Link className="record-link" href={link_url}>{t(lang, 'link_title')} ↗</Link>

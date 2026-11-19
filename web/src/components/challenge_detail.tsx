@@ -21,6 +21,7 @@ import { ProgressPanel } from './progress_panel';
 import { ClaimPanel } from './claim_panel';
 import { ActionsPanel } from './actions_panel';
 import { DisputePanel } from './dispute_panel';
+import { oracle } from '@/lib/oracle';
 
 export function ChallengeDetail({ id_param }: { id_param: string }) {
   const { lang } = use_ui();
@@ -42,6 +43,11 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
     refetchInterval: 15_000,
   });
   const { address } = useAccount();
+  const lms_link = useQuery({
+    queryKey: ['link', address ?? null],
+    enabled: !!address && metadata.data?.lms === 'moodle' && data?.phase === 'Joining',
+    queryFn: () => oracle.get_link(address!),
+  });
   const stake = useQuery({
     queryKey: ['stake', id?.toString(), address],
     enabled: id !== null && !!address && !!data,
@@ -82,6 +88,8 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
 
   const vi = lang === 'vi';
   const meta = metadata.data;
+  const needs_moodle_link = meta?.lms === 'moodle' && (!lms_link.data?.linked || lms_link.data.lms !== 'moodle' ||
+    lms_link.data.site?.replace(/\/+$/, '') !== meta.site.replace(/\/+$/, ''));
   const closed = phase === 'Finalized' || phase === 'Expired';
   const committed = ch.evidence_hash !== ZERO_ROOT;
   const verified = phase === 'Finalized' && evidence.data?.verified;
@@ -97,7 +105,7 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
           <ProgressPanel id={id} wallet={address ?? null} accepting_demo={phase === 'Joining' || phase === 'Running'}
             meta={meta} metadata_failed={metadata.isError} enrolled={enrolled} final={closed} finalized={phase === 'Finalized'}
             evidence={evidence.data?.verified ? evidence.data.evidence : undefined} />
-          <section className="folio result-sheet">
+          <section className="folio result-sheet paper-on-scroll">
             <div className="sheet-head"><h2>{vi ? 'Kết quả học phần' : 'Course result'}</h2>
               {verified && <span className="ink-stamp" role="status">✓ {vi ? 'Đã xác minh' : 'Verified'}</span>}
             </div>
@@ -120,9 +128,16 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
             <div className="receipt-total"><small>{vi ? 'Sinh viên tham gia' : 'Enrolled students'}</small><b>{ch.participant_count}</b></div>
             {committed && <Link className="btn receipt-cta" href={`/verify/${id}`}>{vi ? 'Xác minh kết quả' : 'Verify result'} <span>↗</span></Link>}
           </section>
-          {phase === 'Joining' && (!address || stake.data === 0n) && (address
-            ? <JoinForm id={id} token={ch.token} min_stake={ch.min_stake} max_stake={ch.max_stake} total_principal={ch.total_principal} estimated_pot={has_estimate ? pot.amount : null} />
-            : <section className="folio"><h2>{vi ? 'Tham gia thử thách' : 'Join challenge'}</h2><WalletButton /></section>)}
+          {phase === 'Joining' && (!address || stake.data === 0n) && (
+            !address ? <section className="folio"><h2>{vi ? 'Tham gia thử thách' : 'Join challenge'}</h2><WalletButton /></section> :
+            !meta ? <p role="status">{t(lang, metadata.isError ? 'error_load' : 'loading')}</p> :
+            needs_moodle_link ? <section className="folio">
+              <h2>Moodle</h2>
+              <p role="status">{t(lang, lms_link.isPending ? 'loading' : lms_link.isError ? 'error_load' : 'moodle_join_required')}</p>
+              <Link className="record-link" href="/link">{t(lang, 'link_title')} ↗</Link>
+            </section> :
+            <JoinForm id={id} token={ch.token} min_stake={ch.min_stake} max_stake={ch.max_stake} total_principal={ch.total_principal} estimated_pot={has_estimate ? pot.amount : null} />
+          )}
           <ClaimPanel id={id} phase={phase} wallet={address ?? null} />
           <details className="course-terms"><summary>{vi ? 'Điều kiện tham gia' : 'Enrollment details'}</summary><dl>
             <Info label={vi ? 'Hạn tham gia' : 'Join deadline'} value={format_time(Number(ch.join_deadline),lang)} />

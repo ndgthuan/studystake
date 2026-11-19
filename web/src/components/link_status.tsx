@@ -18,18 +18,12 @@ export function LinkStatus() {
   if (!address) return null;
   const linked = q.data?.linked ? q.data : null;
   return (
-    <section className="card flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-      <span>
-        {t(lang, 'link_title')}:{' '}
-        {linked ? (
-          <span className="font-semibold">{linked.lms === 'demo' ? t(lang, 'link_demo') : t(lang, 'link_moodle')}</span>
-        ) : (
-          <span className="text-[var(--muted)]">—</span>
-        )}
-      </span>
-      <Link href="/link" className="underline">
-        {t(lang, 'nav_link')}
-      </Link>
+    <section className="folio">
+      <div className="sheet-head"><h2>Moodle</h2></div>
+      <p>{q.isPending ? t(lang, 'loading') : q.isError ? t(lang, 'error_load') :
+        t(lang, linked?.lms === 'moodle' ? 'link_moodle_success' : 'moodle_setup_needed')}</p>
+      {linked?.lms === 'moodle' && linked.site && <p className="text-sm text-[var(--muted)] break-all">{linked.site}</p>}
+      <Link href="/link" className="record-link">{t(lang, 'link_title')} ↗</Link>
     </section>
   );
 }

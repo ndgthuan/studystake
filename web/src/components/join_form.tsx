@@ -124,16 +124,16 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
         </p>
       ) : null}
       {amount !== null && in_range && !enough ? (
-        <p className="text-sm" style={{ color: 'var(--accent)' }}>
-          {t(lang, 'need_usdc')}
+        <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--accent)' }}>
+          <span>{t(lang, 'need_usdc')}</span>
           {is_tusdc(token) ? (
             <FaucetButton />
           ) : (
-            <a className="ml-2 underline" href={CIRCLE_FAUCET_URL} target="_blank" rel="noreferrer">
+            <a className="underline" href={CIRCLE_FAUCET_URL} target="_blank" rel="noreferrer">
               {t(lang, 'faucet_circle')}
             </a>
           )}
-        </p>
+        </div>
       ) : null}
       <button type="button" className="btn" disabled={!in_range || !enough || state.status === 'signing' || state.status === 'pending'} onClick={submit}>
         {t(lang, 'join')}
@@ -155,12 +155,12 @@ function FaucetButton() {
   const qc = useQueryClient();
   const { state, run } = use_tx(lang, () => qc.invalidateQueries({ queryKey: ['balance'] }));
   return (
-    <span className="ml-2 inline-flex flex-col gap-1">
+    <div className="inline-flex flex-col gap-1">
       <button type="button" className="btn btn-ghost" onClick={() => run({ address: addresses.tusdc, abi: abis.token, functionName: 'faucet' })}>
         {t(lang, 'faucet_get')}
       </button>
       <TxStatusLine state={state} lang={lang} />
-    </span>
+    </div>
   );
 }
 

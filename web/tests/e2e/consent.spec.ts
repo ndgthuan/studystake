@@ -11,7 +11,7 @@ async function oracle_share(wallet: Address): Promise<boolean> {
 }
 
 const heading = (page: Page) => page.getByRole('heading', { name: /Chia sẻ chứng nhận|Share your study credential/ });
-const state = (page: Page) => page.getByRole('status');
+const state = (page: Page) => page.getByRole('region', { name: /Chia sẻ chứng nhận|Share your study credential/ }).getByRole('status');
 const enable = (page: Page) => page.getByRole('button', { name: /^(Bật chia sẻ|Turn sharing on)$/ });
 const disable = (page: Page) => page.getByRole('button', { name: /^(Tắt chia sẻ|Turn sharing off)$/ });
 
@@ -27,6 +27,7 @@ test('a student turns credential sharing on and off from /link', async ({ browse
   await expect(page.getByRole('heading', { name: /Liên kết LMS|LMS link/ })).toBeVisible();
   await expect(heading(page)).toHaveCount(0);
 
+  await page.getByRole('button', { name: /^Demo LMS/ }).click();
   await page.getByRole('button', { name: /^(Liên kết LMS|LMS link)$/ }).click();
   await expect(heading(page)).toBeVisible({ timeout: 30_000 });
 
@@ -51,7 +52,8 @@ test('a student turns credential sharing on and off from /link', async ({ browse
   await enable(page).click();
   await expect(state(page)).toHaveText(/Đang bật|Sharing is on/, { timeout: 30_000 });
   await page.getByRole('button', { name: /^(Hủy liên kết|Unlink)$/ }).click();
-  await expect(state(page)).toHaveText(/Đang tắt|Sharing is off/, { timeout: 30_000 });
+  await expect(heading(page)).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator('.saved-link')).toHaveAttribute('data-linked', 'false');
   expect(await oracle_share(wallet)).toBe(false);
 
   await ctx.close();

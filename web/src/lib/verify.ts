@@ -12,8 +12,8 @@ export interface EvidenceEntry {
   stake: string;
   completed: boolean;
   reason: string;
-  subject_hash: string | null;
-  activities: { instance_id: number; submitted: boolean; time_finished: number | null }[];
+  subject_hash?: string | null;
+  activities?: { instance_id: number; submitted: boolean; time_finished: number | null }[];
 }
 
 export interface Evidence {

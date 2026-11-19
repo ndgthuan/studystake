@@ -54,6 +54,13 @@ Body: `{ wallet, lms, site, moodle_token?, signature, issued_at }`.
 - `DELETE /link` (signed): users delete their own token.
 - `GET /link/:wallet`: returns `{lms, site, linked: true}` for an active link, or `{linked: false}`. The browser reads this again after reload.
 
+## Moodle access and progress
+
+- `POST /session` exchanges a fresh, origin-bound wallet signature for a short-lived bearer token. The web app keeps the token in memory and requests a new signature when the session expires.
+- `POST /join/preflight` checks that the signed-in wallet can read the required activities through its linked Moodle account. The web join form requires a successful check. On-chain settlement still evaluates each participant independently.
+- `GET /progress/:id/:wallet` requires the matching wallet's bearer token for a real Moodle challenge. It distinguishes a submission Moodle has recorded from one that meets the time and grade rules for settlement. Demo LMS progress remains available for the demo flow.
+- `POST /moodle/quiz-preview` takes `{wallet, url}` and requires the same session and `CREATOR_ROLE`. Standard Moodle quiz links resolve through `core_course_get_course_module` for `id` links or `core_course_get_course_module_by_instance` for `q` links. `mod_quiz_get_quizzes_by_courses` supplies the quiz title and the closing time visible to the linked account. The web form lets the creator review and edit the result before publishing.
+
 ## LmsAdapter
 ```ts
 interface LmsAdapter {
@@ -75,7 +82,7 @@ interface LmsAdapter {
 A participant is `completed` when **all** activities satisfy:
 `submitted && time_finished != null && joined_at <= time_finished <= min(activity.due, end_time)` and (`min_grade == null || grade >= min_grade`).
 Result per participant: `{account, stake, completed, reason: 'ok'|'not_linked'|'link_broken'|'missing'|'late'|'before_join'|'low_grade'|'lms_error', activities: [...]}`.
-**LMS errors:** if a participant hits `lms_error` (network/5xx) after retries, **do not settle** the challenge in this cron run and try again later. With under 2 hours left of `settle_grace`, settle anyway, and `lms_error` participants count as not completed, with the reason recorded (they can still dispute).
+**LMS errors:** if a participant hits `lms_error` after the adapter's retries, defer settlement and try again on the next cron run. If Moodle stays unavailable until `settle_grace` ends, the round expires and participants can claim their share of the vault. A temporary service failure does not count as a missed submission.
 
 ## Merkle and evidence
 - `StandardMerkleTree.of(values, ['uint256','address','uint256','address','uint256'])`, each value = `[chain_id, manager, id, account, stake]`, completers only. The leaf matches `_leaf` in the contract (double-hashed abi.encode). **A compatibility test is mandatory:** generate a proof in TS and verify it on-chain on Anvil.
@@ -83,6 +90,7 @@ Result per participant: `{account, stake, completed, reason: 'ok'|'not_linked'|'
 - Evidence JSON (R2 `evidence/<chain_id>/<id>.json`): `{version, chain_id, manager, challenge_id, metadata_hash, generated_at, root, completed_count, completed_stake, entries:[{account, stake, completed, reason, subject_hash, activities:[{instance_id, submitted, time_finished}]}], tree: tree.dump()}`. Does **not** contain names, student IDs, tokens or raw userids.
 - `evidence_hash = keccak256(utf8(canonical_json(evidence)))`.
 - `GET /evidence/:id` returns the JSON as is. `GET /proof/:id/:account` returns `{completed, stake, proof}` (from the tree in the evidence).
+- New Moodle evidence excludes per-student submission timestamps and Moodle subject hashes. Previously committed evidence is served as committed so its hash can still be verified.
 
 ## Settle job (cron, idempotent)
 1. KV lock `lock:settle:<id>` with a 4-minute TTL. Skip if locked.

@@ -6,7 +6,10 @@ import { use_ui } from '@/hooks/use_ui';
 import { use_challenge } from '@/hooks/use_challenge';
 import { t } from '@/lib/i18n';
 import Link from 'next/link';
-import { use_course_evidence } from '@/hooks/use_course_record';
+import { useState } from 'react';
+import { use_course_evidence, use_course_metadata } from '@/hooks/use_course_record';
+import { format_usdc } from '@/lib/usdc';
+import { phase_key } from '@/lib/format';
 import { DEPLOY_FROM_BLOCK, explorer_address, explorer_tx } from '@/lib/config';
 import { addresses, public_client } from '@/lib/contracts';
 import { parseAbiItem } from 'viem';
@@ -19,6 +22,8 @@ export function VerifyView({ id_param }: { id_param: string }) {
   const chain_q = use_challenge(id);
   const chain = chain_q.data;
   const ev_q = use_course_evidence(id, chain?.ch);
+  const meta = use_course_metadata(chain?.ch.metadata_hash).data;
+  const [share, set_share] = useState<'copied' | 'failed' | null>(null);
   const vi = lang === 'vi';
   const tx_q = useQuery({
     queryKey: ['finalize_tx', id?.toString(), chain?.ch.finalized_at.toString()],
@@ -44,12 +49,21 @@ export function VerifyView({ id_param }: { id_param: string }) {
       return logs[0]?.transactionHash ?? null;
     },
   });
-  if (id === null || chain_q.isError || ev_q.isError) return <p role="status">{t(lang,'error_load')}</p>;
-  if (chain?.ch.evidence_hash === ZERO_ROOT) return <p>{vi ? 'Chưa có bằng chứng công bố.' : 'Evidence has not been published yet.'}</p>;
-  if (!chain || !ev_q.data) return <p role="status">{t(lang,'loading')}</p>;
-  const { evidence, checks:result, verified } = ev_q.data;
   const tx = tx_q.data && explorer_tx(tx_q.data);
   const manager = explorer_address(addresses.manager);
+  const result = ev_q.data?.checks;
+
+  async function copy_link() {
+    try {
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.hash = '';
+      await navigator.clipboard.writeText(url.href);
+      set_share('copied');
+    } catch {
+      set_share('failed');
+    }
+  }
 
   return (
     <div className="verify-record flex flex-col gap-4">
@@ -57,13 +71,27 @@ export function VerifyView({ id_param }: { id_param: string }) {
       <h1 className="text-2xl font-bold">
         {t(lang, 'verify_title')} · #{id_param}
       </h1>
+      {chain && <section className="folio flex flex-col gap-3">
+        <div className="sheet-head"><h2>{meta?.title ?? t(lang, 'verify_result_summary')}</h2><span className="badge-phase">{t(lang, phase_key(chain.phase))}</span></div>
+        <dl>
+          <div className="money-line"><dt>{t(lang, 'verify_source')}</dt><dd>{meta ? meta.lms === 'moodle' ? 'Moodle' : 'Demo LMS' : '—'}</dd></div>
+          {chain.phase === 'Finalized' && <>
+            <div className="money-line"><dt>{t(lang, 'completed')}</dt><dd className="num">{chain.ch.completed_count}/{chain.ch.participant_count}</dd></div>
+            <div className="money-line"><dt>{t(lang, 'verify_final_reward')}</dt><dd className="num">{format_usdc(chain.ch.reward_pot, 6)} {t(lang, 'test_usdc')}</dd></div>
+          </>}
+        </dl>
+        {chain.phase === 'Finalized' && ev_q.data?.verified && <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn btn-ghost" onClick={copy_link}>{t(lang, 'verify_copy_link')}</button>
+          {share && <small role="status">{t(lang, share === 'copied' ? 'verify_link_copied' : 'verify_copy_failed')}</small>}
+        </div>}
+      </section>}
 
       <section className="card verify-checks flex flex-col gap-3 p-4">
-        {verified && <div className="verification-seal">
+        {ev_q.data?.verified && chain && <div className="verification-seal">
           <span className="ink-stamp">{vi ? 'Khớp on-chain' : 'On-chain match'}</span>
           <ChainMark signal={chain.ch.evidence_hash} />
         </div>}
-        <Check
+        {chain && result && <><Check
           label={t(lang, 'verify_hash')}
           ok={result.hash_ok}
           onchain={chain.ch.evidence_hash}
@@ -76,13 +104,27 @@ export function VerifyView({ id_param }: { id_param: string }) {
           onchain={chain.ch.root}
           computed={result.computed_root ?? '—'}
           lang={lang}
-        />
+        /></>}
+        {(chain_q.isError || ev_q.isError) && <div>
+          <p role="status">{t(lang, 'error_load')}</p>
+          <button type="button" className="btn btn-ghost" disabled={chain_q.isFetching || ev_q.isFetching} onClick={() => {
+            if (chain_q.isError) void chain_q.refetch();
+            if (ev_q.isError && chain) void ev_q.refetch();
+          }}>{t(lang, 'retry')}</button>
+        </div>}
+        {id !== null && !chain_q.isError && !ev_q.isError && (chain?.ch.evidence_hash === ZERO_ROOT ?
+          <p>{vi ? 'Chưa có bằng chứng công bố.' : 'Evidence has not been published yet.'}</p> :
+          !result && <p role="status">{t(lang, 'loading')}</p>)}
+        {id === null && <p role="status">{t(lang, 'error_load')}</p>}
         {tx && <a className="record-link" href={tx} target="_blank" rel="noreferrer">{vi ? 'Giao dịch chốt kết quả' : 'Finalization transaction'} ↗</a>}
         {manager && <a className="record-link" href={manager} target="_blank" rel="noreferrer">{vi ? 'Hợp đồng thử thách' : 'Challenge contract'} ↗</a>}
-        {result.error ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{result.error}</p> : null}
+        {tx_q.isError && <button type="button" className="btn btn-ghost" disabled={tx_q.isFetching} onClick={() => void tx_q.refetch()}>
+          {vi ? 'Tải lại giao dịch chốt' : 'Retry finalization transaction'}
+        </button>}
+        {result?.error ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{result.error}</p> : null}
       </section>
 
-      <section className="card paper-on-scroll p-4">
+      {ev_q.data?.verified && <section className="card paper-on-scroll p-4">
         <h2 className="mb-2 font-semibold">{t(lang, 'participant')}</h2>
         <div className="overflow-x-auto">
           <table className="num w-full text-sm">
@@ -94,7 +136,7 @@ export function VerifyView({ id_param }: { id_param: string }) {
               </tr>
             </thead>
             <tbody>
-              {(evidence.entries ?? []).map((e) => (
+              {(ev_q.data.evidence.entries ?? []).map((e) => (
                 <tr key={e.account} className="border-t border-[var(--border)]">
                   <td className="py-1">{short_address(e.account)}</td>
                   <td className="py-1">{e.completed ? '✓' : '✗'}</td>
@@ -104,7 +146,7 @@ export function VerifyView({ id_param }: { id_param: string }) {
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

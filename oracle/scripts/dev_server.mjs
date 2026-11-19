@@ -84,7 +84,7 @@ async function chain_latest_timestamp() {
 }
 
 function to_request(req, body) {
-  const url = `http://127.0.0.1:${port}${req.url}`;
+  const url = `http://${req.headers.host ?? `127.0.0.1:${port}`}${req.url}`;
   const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) {
     if (typeof v === 'string') headers.set(k, v);

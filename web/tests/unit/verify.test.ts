@@ -49,6 +49,18 @@ describe('verify_evidence', () => {
     expect(r.hash_ok).toBe(false);
   });
 
+  it('verifies Moodle evidence without submission history or subject hashes', () => {
+    const { doc, root } = build_evidence();
+    const redacted = {
+      ...doc,
+      version: 2,
+      entries: doc.entries.map(({ account, stake, completed, reason }) => ({ account, stake, completed, reason })),
+    };
+    const checks = verify_evidence(redacted, evidence_hash_of(redacted), root);
+    expect(checks.hash_ok).toBe(true);
+    expect(checks.root_ok).toBe(true);
+  });
+
   it('fails the root check when on-chain root differs', () => {
     const { doc, hash } = build_evidence();
     const r = verify_evidence(doc, hash, `0x${'22'.repeat(32)}`);

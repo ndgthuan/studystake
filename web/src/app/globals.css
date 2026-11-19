@@ -201,6 +201,13 @@ body { background-image: radial-gradient(var(--rule) .55px,transparent .75px); b
 .activity-state { margin-left:auto; max-width:40%; text-align:right; }
 .personal-progress { margin-top:14px; font-size:.8rem; }
 .personal-progress b { float:right; }
+.eligibility-change { color:var(--success); }
+@media (prefers-reduced-motion:no-preference) {
+  .eligibility-change { animation:eligibility-update .7s ease-out; }
+  @keyframes eligibility-update {
+    30% { transform:scale(1.12); }
+  }
+}
 .personal-progress [role="progressbar"] { background:var(--line); height:5px; margin-top:6px; }
 .personal-progress i { display:block; height:100%; background:var(--success); }
 .task-cta { display:inline-flex; margin-top:15px; }

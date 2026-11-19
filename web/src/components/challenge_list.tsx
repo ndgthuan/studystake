@@ -28,10 +28,34 @@ const FILTERS: (PhaseName | 'all')[] = ['all', 'Joining', 'Running', 'AwaitingSe
 export function ChallengeList() {
   const { lang } = use_ui();
   const [filter, set_filter] = useState<PhaseName | 'all'>('all');
+  const q = useChallengeList();
+  const rows = (q.data ?? []).filter((r) => filter === 'all' || r.phase === filter);
 
+  return (
+    <div className="challenge-catalog flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">{t(lang, 'nav_challenges')}</h1>
+      <div className="filter-strip flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            className={filter === f ? 'btn' : 'btn btn-ghost'}
+            aria-pressed={filter === f}
+            onClick={() => set_filter(f)}
+          >
+            {f === 'all' ? t(lang, 'filter_all') : t(lang, phase_key(f))}
+          </button>
+        ))}
+      </div>
+      <CatalogRows q={q} rows={rows} />
+    </div>
+  );
+}
 
-  const q = useQuery<Row[]>({
+export function useChallengeList(enabled = true) {
+  return useQuery<Row[]>({
     queryKey: ['challenges'],
+    enabled,
     queryFn: async () => {
       const count = Number(
         await public_client.readContract({ address: addresses.manager, abi: abis.manager, functionName: 'challenge_count' }),
@@ -78,24 +102,12 @@ export function ChallengeList() {
     refetchInterval: 30_000,
   });
 
-  const rows = (q.data ?? []).filter((r) => filter === 'all' || r.phase === filter);
+}
 
+function CatalogRows({q, rows}: {q: ReturnType<typeof useChallengeList>; rows: Row[]}) {
+  const { lang } = use_ui();
   return (
-    <div className="challenge-catalog flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t(lang, 'nav_challenges')}</h1>
-      <div className="filter-strip flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            className={filter === f ? 'btn' : 'btn btn-ghost'}
-            aria-pressed={filter === f}
-            onClick={() => set_filter(f)}
-          >
-            {f === 'all' ? t(lang, 'filter_all') : t(lang, phase_key(f))}
-          </button>
-        ))}
-      </div>
+    <>
       {q.isLoading ? <p className="text-[var(--muted)]">{t(lang, 'loading')}</p> : null}
       {q.error ? <p className="text-[var(--muted)]">{t(lang, 'error_load')}</p> : null}
       {q.data && rows.length === 0 ? <p className="text-[var(--muted)]">{t(lang, 'no_challenges')}</p> : null}
@@ -116,6 +128,6 @@ export function ChallengeList() {
           </li>
         ))}
       </ul>
-    </div>
+    </>
   );
 }

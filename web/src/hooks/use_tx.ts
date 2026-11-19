@@ -49,7 +49,7 @@ export function use_tx(lang: Lang, on_confirmed?: () => void | Promise<void>) {
       if (!wallet || !publicClient || !address) {
         return fail(explain_error(new Error('no wallet'), lang));
       }
-      let hash: `0x${string}`;
+      let hash: `0x${string}` | null = null;
       try {
         set_state({ status: 'signing', hash: null, error: null, explorer: null });
         await publicClient.simulateContract({
@@ -76,7 +76,7 @@ export function use_tx(lang: Lang, on_confirmed?: () => void | Promise<void>) {
           return fail(explain_error(new Error('reverted'), lang), hash);
         }
       } catch (err) {
-        return fail(explain_error(err, lang));
+        return fail(hash ? t(lang, 'tx_receipt_unknown') : explain_error(err, lang), hash);
       }
       set_state({ status: 'confirmed', hash, error: null, explorer: explorer_tx(hash) });
       if (req.functionName !== 'approve') notify({ tone: 'success', title: t(lang, 'tx_confirmed') });

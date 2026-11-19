@@ -1,9 +1,11 @@
 'use client';
 // Join: amount input with min/max and balance, EIP-2612 permit + join_with_permit when the token supports it,
 // otherwise approve + join. tUSDC gets a faucet button, Circle USDC a link to Circle's faucet.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { useAccount, useWalletClient } from 'wagmi';
+import { useAccount, useConfig, useWalletClient } from 'wagmi';
+import { getAccount } from '@wagmi/core';
 import { type Address, type Hex } from 'viem';
 import { use_ui } from '@/hooks/use_ui';
 import { use_tx } from '@/hooks/use_tx';
@@ -14,6 +16,8 @@ import { CIRCLE_FAUCET_URL, is_tusdc, permit_domain } from '@/lib/tokens';
 import { t } from '@/lib/i18n';
 import { PayoutLines } from './payout_lines';
 import { TxStatusLine } from './tx_status';
+import { oracle, OracleError } from '@/lib/oracle';
+import type { MoodleAccess } from '@/hooks/use_moodle_session';
 
 const PERMIT_TYPES = {
   Permit: [
@@ -32,15 +36,20 @@ interface Props {
   max_stake: bigint;
   total_principal: bigint;
   estimated_pot: bigint | null;
+  moodle_access?: MoodleAccess;
 }
 
-export function JoinForm({ id, token, min_stake, max_stake, total_principal, estimated_pot }: Props) {
+export function JoinForm({ id, token, min_stake, max_stake, total_principal, estimated_pot, moodle_access }: Props) {
   const { lang } = use_ui();
   const { address } = useAccount();
+  const config = useConfig();
   const { data: wallet } = useWalletClient();
   const qc = useQueryClient();
   const [text, set_text] = useState('');
   const [local_error, set_local_error] = useState<string | null>(null);
+  const [moodle_error, set_moodle_error] = useState(false);
+  const [busy, set_busy] = useState(false);
+  const submitting = useRef(false);
   const balance_q = useQuery({
     queryKey: ['balance', token, address ?? null],
     enabled: !!address,
@@ -61,11 +70,27 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
    * Each on-chain step runs through use_tx. A failed step stops the flow so join never runs unapproved.
    */
   async function submit() {
+    if (submitting.current) return;
     set_local_error(null);
+    set_moodle_error(false);
     if (!address || !wallet || amount === null) return;
     if (!in_range || !enough) return;
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
+    submitting.current = true;
+    set_busy(true);
     try {
+      if (moodle_access) {
+        try {
+          const session = await moodle_access.authorize();
+          const check = await oracle.check_join(Number(id), address, session);
+          if (check?.ok !== true) throw new Error('Moodle activity access not confirmed');
+        } catch (err) {
+          if (err instanceof OracleError && err.status === 401) moodle_access.clear();
+          set_moodle_error(true);
+          return;
+        }
+      }
+      if (getAccount(config).address !== address) return;
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
       if (await supports_eip2612(token)) {
         const nonce = (await public_client.readContract({
           address: token,
@@ -82,6 +107,7 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
           message: { owner: address, spender: addresses.manager, value: amount, nonce, deadline },
         });
         const { v, r, s } = split_sig(sig);
+        if (getAccount(config).address !== address) return;
         await run({
           address: addresses.manager,
           abi: abis.manager,
@@ -91,15 +117,18 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
         return;
       }
       const approved = await run({ address: token, abi: abis.token, functionName: 'approve', args: [addresses.manager, amount] });
-      if (approved === null) return;
+      if (approved === null || getAccount(config).address !== address) return;
       await run({ address: addresses.manager, abi: abis.manager, functionName: 'join', args: [id, amount] });
     } catch (err) {
       set_local_error(err instanceof Error ? err.message : String(err));
+    } finally {
+      submitting.current = false;
+      set_busy(false);
     }
   }
 
   return (
-    <section className="card flex flex-col gap-3 p-4">
+    <section id="join" className="card flex flex-col gap-3 p-4">
       <h2 className="font-semibold">{t(lang, 'join')}</h2>
       <label className="flex flex-col gap-1 text-sm">
         <span>{t(lang, 'join_amount')}</span>
@@ -115,8 +144,8 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
         {t(lang, 'balance')}: {format_usdc(balance)} USDC
       </div>
       {amount !== null && amount > 0n && in_range && <>
-        <PayoutLines lang={lang} principal={amount} estimate={estimated_pot === null ? null : estimated_pot * amount / (total_principal + amount)} />
-        <small>{lang === 'vi' ? 'Ước tính theo quỹ hiện tại nếu tất cả người tham gia hoàn thành. Vốn hoàn lại phụ thuộc giá trị vault khi chốt.' : 'Estimate uses the current pool and assumes every participant finishes. Principal depends on the vault value at settlement.'}</small>
+        <PayoutLines lang={lang} principal={null} estimate={estimated_pot === null ? null : estimated_pot * amount / (total_principal + amount)} />
+        <small>{t(lang, 'stake_risk')}</small>
       </>}
       {amount !== null && !in_range ? (
         <p className="text-sm" style={{ color: 'var(--accent)' }}>
@@ -135,11 +164,16 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
           )}
         </div>
       ) : null}
-      <button type="button" className="btn" disabled={!in_range || !enough || state.status === 'signing' || state.status === 'pending'} onClick={submit}>
+      {moodle_access && <small>{t(lang, 'moodle_preflight_help')}</small>}
+      <button type="button" className="btn" disabled={!in_range || !enough || !wallet || busy || state.status === 'pending'} onClick={submit}>
         {t(lang, 'join')}
       </button>
+      {moodle_error && <div role="alert">
+        <p>{t(lang, 'moodle_preflight_failed')}</p>
+        <Link className="record-link" href={`/link?challenge=${id}`}>{t(lang, 'link_title')} ↗</Link>
+      </div>}
       <TxStatusLine state={state} lang={lang} />
-      {state.status !== 'idle' ? (
+      {!busy && state.status !== 'idle' ? (
         <button type="button" className="btn btn-ghost" onClick={reset}>
           OK
         </button>

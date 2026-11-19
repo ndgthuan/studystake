@@ -78,7 +78,7 @@ test('demo challenge: join, sponsor, yield, submit, settle, finalize, claim, ver
     for (const instance of [1, 2]) {
       await page.getByRole('button', { name: new RegExp(`(Làm bài demo|Submit demo) #${instance}$`) }).click();
       await expect(page.getByText('DEMO · OK')).toBeVisible({ timeout: 60_000 });
-      await expect(page.getByRole('progressbar', { name: /Tiến độ|Progress/ })).toHaveAttribute('aria-valuenow', String(instance));
+      await expect(page.getByRole('progressbar', { name: /Bài đủ điều kiện|Eligible submissions/ })).toHaveAttribute('aria-valuenow', String(instance));
     }
     await ctx.close();
   }

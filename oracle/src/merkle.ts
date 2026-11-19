@@ -23,12 +23,12 @@ export interface EvidenceEntry {
   stake: string;
   completed: boolean;
   reason: string;
-  subject_hash: string | null;
-  activities: { instance_id: number; submitted: boolean; time_finished: number | null }[];
+  subject_hash?: string | null;
+  activities?: { instance_id: number; submitted: boolean; time_finished: number | null }[];
 }
 
 export interface Evidence {
-  version: 1;
+  version: 1 | 2;
   chain_id: number;
   manager: string;
   challenge_id: number;
@@ -62,7 +62,7 @@ export function root_of(tree: StandardMerkleTree<LeafValue> | null): string {
   return tree ? tree.root : ZERO_ROOT;
 }
 
-/** Hash of (site|userid) or demo|wallet. Stored in KV and in evidence, never the raw userid. */
+/** Hash of (site|userid), used for internal LMS account linking. */
 export function subject_hash_of(site: string, userid: string | number): string {
   return keccak256(toBytes(`${site}|${userid}`));
 }

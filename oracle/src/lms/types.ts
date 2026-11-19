@@ -24,7 +24,7 @@ export interface LinkInfo {
   challenge_id: number;
 }
 
-export type LmsErrorCode = 'invalid_token' | 'lms_error' | 'lms_client_error' | 'timeout' | 'not_linked';
+export type LmsErrorCode = 'invalid_token' | 'activity_access_denied' | 'lms_error' | 'lms_client_error' | 'timeout' | 'not_linked';
 
 export class LmsError extends Error {
   readonly code: LmsErrorCode;
@@ -34,6 +34,10 @@ export class LmsError extends Error {
     this.name = 'LmsError';
     this.code = code;
   }
+}
+
+export function is_link_failure(code: LmsErrorCode): boolean {
+  return code === 'invalid_token' || code === 'not_linked' || code === 'activity_access_denied';
 }
 
 export interface LmsAdapter {

@@ -13,7 +13,7 @@ export interface MoodleOptions {
   want_grade?: boolean;
 }
 
-/** Raw HTTP call with timeout, then a retry for network and 5xx errors only. 4xx and exceptions are not retried. */
+/** Raw HTTP call with timeout and retries for network errors, HTTP 429 and 5xx responses. */
 export async function moodle_call(
   site: string,
   token: string,
@@ -41,9 +41,10 @@ export async function moodle_call(
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
+        redirect: 'error',
         signal: AbortSignal.timeout(timeout_ms),
       });
-      if (res.status >= 500) {
+      if (res.status === 429 || res.status >= 500) {
         last_error = new LmsError(`Moodle HTTP ${res.status}`, 'lms_error');
         continue;
       }

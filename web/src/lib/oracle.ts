@@ -53,6 +53,8 @@ export interface ProgressActivity {
   submitted: boolean;
   time_finished: number | null;
   status: string;
+  eligible: boolean;
+  reason: string;
 }
 
 export interface ProgressBody {
@@ -69,20 +71,24 @@ export interface ProofBody {
   proof: `0x${string}`[];
 }
 
+export interface MoodleSession {
+  token: string;
+  expires_at: number;
+}
+
+export interface QuizPreview {
+  site: string;
+  course_id: number;
+  instance_id: number;
+  name: string;
+  due: number | null;
+}
+
 export interface X402Stats {
   pay_to: `0x${string}`;
   asset: `0x${string}`;
   settled_amount: string;
   settled_count: number;
-}
-
-export interface EvidenceEntryView {
-  account: string;
-  stake: string;
-  completed: boolean;
-  reason: string;
-  subject_hash: string | null;
-  activities: { instance_id: number; submitted: boolean; time_finished: number | null }[];
 }
 
 export const oracle = {
@@ -94,7 +100,21 @@ export const oracle = {
   get_consent: (wallet: string) => request<{ wallet: string; share: boolean }>(`/x402/credential/${wallet}/consent`),
   post_consent: (body: unknown) => request<{ wallet: string; share: boolean }>(`/x402/credential/consent`, { method: 'POST', body: JSON.stringify(body) }),
   get_x402_stats: () => request<X402Stats>('/x402/stats'),
-  get_progress: (id: number, wallet: string) => request<ProgressBody>(`/progress/${id}/${wallet}`),
+  post_session: (body: { wallet: string; issued_at: number; signature: string }) =>
+    request<MoodleSession>('/session', { method: 'POST', body: JSON.stringify(body) }),
+  preview_quiz: (wallet: string, url: string, token: string) =>
+    request<QuizPreview>('/moodle/quiz-preview', {
+      method: 'POST', body: JSON.stringify({ wallet, url }),
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  check_join: (id: number, wallet: string, token: string) =>
+    request<{ ok: true }>('/join/preflight', {
+      method: 'POST', body: JSON.stringify({ challenge_id: id, wallet }),
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  get_progress: (id: number, wallet: string, token?: string, signal?: AbortSignal) => request<ProgressBody>(`/progress/${id}/${wallet}`, {
+    signal, cache: 'no-store', headers: token ? { authorization: `Bearer ${token}` } : undefined,
+  }),
   post_demo_submit: (body: unknown) => request<{ ok: boolean; submitted_at: number }>(`/demo/submit`, { method: 'POST', body: JSON.stringify(body) }),
   get_demo_activities: (id: number) =>
     request<{ label: string; lms: string; title: string; activities: MetadataDoc['activities'] }>(`/demo/activities/${id}`),

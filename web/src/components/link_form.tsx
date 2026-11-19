@@ -2,6 +2,7 @@
 // Link an LMS account to the connected wallet. Moodle needs a token and an explicit consent checkbox.
 // Demo LMS needs no token and is labelled DEMO. The signed message is the same one the oracle verifies.
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAccount, useWalletClient } from 'wagmi';
 import { use_ui } from '@/hooks/use_ui';
@@ -28,10 +29,13 @@ const LINK_ERRORS: Partial<Record<string, DictKey>> = {
   internal: 'link_unavailable',
 };
 
-export function LinkForm() {
+export function LinkForm({ return_to }: { return_to?: string }) {
   const { address } = useAccount();
-  if (!address) return <AccountGate page="link" />;
-  return <WalletLinkForm address={address} key={address} />;
+  const { lang } = use_ui();
+  return <>
+    {return_to && <Link className="crumb record-link" href={return_to}>← {t(lang, 'back_to_challenge')}</Link>}
+    {address ? <WalletLinkForm address={address} key={address} /> : <AccountGate page="link" />}
+  </>;
 }
 
 function WalletLinkForm({ address }: { address: `0x${string}` }) {

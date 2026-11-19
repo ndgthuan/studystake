@@ -15,6 +15,9 @@ export function assert_not_exception(body: unknown): void {
     if (obj.errorcode === 'invalidtoken') {
       throw new LmsError('Moodle token is invalid or revoked', 'invalid_token');
     }
+    if (obj.errorcode === 'requireloginerror' || obj.errorcode === 'nopermissions') {
+      throw new LmsError('Moodle denied access to this activity for the linked account', 'activity_access_denied');
+    }
     throw new LmsError(`Moodle exception: ${obj.errorcode ?? obj.exception}`, 'lms_client_error');
   }
 }

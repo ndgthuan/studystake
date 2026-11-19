@@ -2,7 +2,7 @@
 import { evaluate_participant, type ActivityOutcome, type ParticipantResult } from './evaluate.ts';
 import { metadata_key, parse_metadata, verify_metadata, type ChallengeMetadata } from './metadata.ts';
 import { build_tree, evidence_hash_of, evidence_key, root_of, type Evidence, type EvidenceEntry, type LeafInput } from './merkle.ts';
-import { LmsError, type LinkInfo, type LmsAdapter } from './lms/types.ts';
+import { is_link_failure, LmsError, type LinkInfo, type LmsAdapter } from './lms/types.ts';
 import { link_matches_challenge } from './link.ts';
 import { canonical_json } from './canonical.ts';
 import { get_json, get_link, get_text, put_evidence, put_json, try_lock, unlock, type LinkRecord, type Store } from './store.ts';
@@ -10,7 +10,6 @@ import type { ChainPort, ChallengeRow } from './chain.ts';
 import { STATUS, SCAN_CHUNK_BLOCKS } from './chain.ts';
 import { normalize_site } from './config.ts';
 
-export const SETTLE_LATE_THRESHOLD_SECONDS = 2 * 3600;
 export const DISPUTE_TIMEOUT_SECONDS = 7 * 24 * 3600;
 
 export interface SettleDeps {
@@ -107,7 +106,7 @@ async function activity_outcomes(
       const status = await adapter.get_activity_status(info, act);
       outcomes.push({ instance_id: act.instance_id, due: act.due, ok: true, status });
     } catch (err) {
-      if (err instanceof LmsError && err.code === 'invalid_token') {
+      if (err instanceof LmsError && is_link_failure(err.code)) {
         outcomes.push({ instance_id: act.instance_id, due: act.due, ok: false, code: 'link_broken' });
       } else {
         had_lms_error = true;
@@ -141,7 +140,12 @@ async function evaluate_challenge(deps: SettleDeps, ch: ChallengeRow, meta: Chal
         if (link.token_enc === null) {
           outcomes = meta.activities.map((a) => ({ instance_id: a.instance_id, due: a.due, ok: false as const, code: 'link_broken' as const }));
         } else {
-          token = await deps.decrypt_token(link.token_enc, deps.token_enc_key);
+          try {
+            token = await deps.decrypt_token(link.token_enc, deps.token_enc_key);
+          } catch {
+            had_lms_error = true;
+            outcomes = meta.activities.map((a) => ({ instance_id: a.instance_id, due: a.due, ok: false, code: 'lms_error' }));
+          }
         }
       }
       if (link.lms === 'demo' || token !== null) {
@@ -181,6 +185,7 @@ export function build_evidence(
   metadata_hash: string,
   generated_at: number,
   results: Evaluated['results'],
+  lms: ChallengeMetadata['lms'] = 'demo',
 ): { evidence: Evidence; root: `0x${string}`; completed_count: number; completed_stake: bigint; evidence_hash: `0x${string}`; canonical: string } {
   const completers: LeafInput[] = results
     .filter((r) => r.result.completed)
@@ -192,15 +197,17 @@ export function build_evidence(
     stake: r.result.stake.toString(),
     completed: r.result.completed,
     reason: r.result.reason,
-    subject_hash: r.subject_hash,
-    activities: r.result.activities.map((a) => ({
-      instance_id: a.instance_id,
-      submitted: a.submitted,
-      time_finished: a.time_finished,
-    })),
+    ...(lms === 'demo' ? {
+      subject_hash: r.subject_hash,
+      activities: r.result.activities.map((a) => ({
+        instance_id: a.instance_id,
+        submitted: a.submitted,
+        time_finished: a.time_finished,
+      })),
+    } : {}),
   }));
   const evidence: Evidence = {
-    version: 1,
+    version: lms === 'moodle' ? 2 : 1,
     chain_id: deps.chain_id,
     manager: deps.manager,
     challenge_id: ch.id,
@@ -252,13 +259,15 @@ async function settle_one(deps: SettleDeps, ch: ChallengeRow): Promise<Challenge
   }
 
   const evaluated = await evaluate_challenge(deps, ch, meta);
-  const remaining = ch.end_time + ch.settle_grace - deps.now();
-  if (evaluated.lms_error_accounts.length > 0 && remaining > SETTLE_LATE_THRESHOLD_SECONDS) {
+  if (deps.now() >= ch.end_time + ch.settle_grace) {
+    return (await advance_one(deps, ch))[0]!;
+  }
+  if (evaluated.lms_error_accounts.length > 0) {
     deps.log('settle_deferred_lms_error', { id: ch.id, accounts: evaluated.lms_error_accounts.length });
     return { id: ch.id, action: 'deferred', detail: 'lms_error' };
   }
 
-  const built = build_evidence(deps, ch, ch.metadata_hash, deps.now(), evaluated.results);
+  const built = build_evidence(deps, ch, ch.metadata_hash, deps.now(), evaluated.results, meta.lms);
   // Content-addressed: a later run with different results writes a different key and never replaces this one.
   await put_evidence(deps.store.r2, evidence_key(deps.chain_id, ch.id, built.evidence_hash), built.canonical);
 

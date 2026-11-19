@@ -17,7 +17,7 @@ export function SubmissionReplay({ entry, tasks, lang }: Props) {
   const [step, set_step] = useState<number | null>(null);
   const [playing, set_playing] = useState(false);
   const vi = lang === 'vi';
-  const submissions = entry.activities.filter(a => a.submitted && a.time_finished !== null)
+  const submissions = (entry.activities ?? []).filter(a => a.submitted && a.time_finished !== null)
     .sort((a, b) => a.time_finished! - b.time_finished!);
   const last = submissions.length + 1;
   useEffect(() => {

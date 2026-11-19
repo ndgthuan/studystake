@@ -14,7 +14,9 @@ import { CHAIN_ID, DEFAULT_MOODLE_SITE } from '@/lib/config';
 import { stake_tokens } from '@/lib/tokens';
 import { canonical_json } from '@/lib/canonical';
 import { metadata_message } from '@/lib/messages';
-import { oracle, type MetadataDoc } from '@/lib/oracle';
+import { oracle, OracleError, type MetadataDoc, type QuizPreview } from '@/lib/oracle';
+import { use_moodle_session } from '@/hooks/use_moodle_session';
+import { format_time } from '@/lib/format';
 import { format_usdc, parse_usdc } from '@/lib/usdc';
 import { explain_error } from '@/lib/errors';
 import { t } from '@/lib/i18n';
@@ -32,7 +34,7 @@ export function AdminPanel() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">{t(lang, 'admin_title')}</h1>
-      {creator ? <CreateChallenge /> : null}
+      {creator ? <CreateChallenge key={address} /> : null}
       {creator || is_treasury ? <SponsorForm can_sponsor_manually={creator} treasury={treasury_address} is_treasury={is_treasury} /> : null}
       {guardian ? <Guardian /> : null}
     </div>
@@ -52,6 +54,12 @@ function CreateChallenge() {
   const [quiz, set_quiz] = useState('');
   const [assignment, set_assignment] = useState('');
   const [due_hours, set_due_hours] = useState('1');
+  const [quiz_url, set_quiz_url] = useState('');
+  const [quiz_preview, set_quiz_preview] = useState<QuizPreview | null>(null);
+  const [imported_quiz, set_imported_quiz] = useState<QuizPreview | null>(null);
+  const [imported_due, set_imported_due] = useState<number | null>(null);
+  const [preview_busy, set_preview_busy] = useState(false);
+  const [preview_error, set_preview_error] = useState<string | null>(null);
   const [join_min, set_join_min] = useState('5');
   const [min_text, set_min] = useState('1');
   const [max_text, set_max] = useState('500');
@@ -70,10 +78,42 @@ function CreateChallenge() {
   const valid_moodle = course_id !== null && (quiz_id !== null || assignment_id !== null) &&
     (!quiz.trim() || quiz_id !== null) && (!assignment.trim() || assignment_id !== null);
   const clean_site = site.trim().replace(/\/+$/, '');
+  const quiz_source = lms === 'moodle' && imported_quiz?.site === clean_site &&
+    imported_quiz.course_id === course_id && imported_quiz.instance_id === quiz_id ? imported_quiz : null;
+  const fixed_due = quiz_source ? imported_due : null;
+  const now = Math.floor(Date.now() / 1000);
+  const moodle_access = use_moodle_session(address, now);
   const ready = title.trim().length > 0 && clean_site.length > 0 &&
-    Number.isSafeInteger(join_seconds) && Number.isSafeInteger(due_seconds) && join_seconds > 0 && due_seconds > join_seconds &&
+    Number.isSafeInteger(join_seconds) && join_seconds > 0 &&
+    (fixed_due === null ? Number.isSafeInteger(due_seconds) && due_seconds > join_seconds : fixed_due > now + join_seconds) &&
     min_stake !== null && min_stake > 0n && max_stake !== null && max_stake >= min_stake &&
     (lms === 'demo' || valid_moodle);
+
+  async function preview_quiz() {
+    if (!address || !moodle_access.ready || preview_busy || !quiz_url.trim()) return;
+    set_preview_error(null);
+    set_quiz_preview(null);
+    set_preview_busy(true);
+    try {
+      const token = await moodle_access.authorize();
+      set_quiz_preview(await oracle.preview_quiz(address, quiz_url.trim(), token));
+    } catch (err) {
+      if (err instanceof OracleError && err.status === 401) moodle_access.clear();
+      set_preview_error(err instanceof OracleError ? err.code : 'unknown');
+    } finally {
+      set_preview_busy(false);
+    }
+  }
+
+  function apply_preview(preview: QuizPreview) {
+    set_site(preview.site);
+    set_course(String(preview.course_id));
+    set_quiz(String(preview.instance_id));
+    set_title(current => current.trim() ? current : preview.name.slice(0, 200));
+    set_imported_quiz(preview);
+    set_imported_due(preview.due);
+    set_quiz_preview(null);
+  }
 
   async function create() {
     if (!address || !client || !ready || creating) return;
@@ -81,9 +121,13 @@ function CreateChallenge() {
     set_creating(true);
     try {
       const now = Math.floor(Date.now() / 1000);
-      const end_time = now + due_seconds;
+      const end_time = fixed_due ?? now + due_seconds;
+      if (end_time <= now + join_seconds) {
+        set_msg(t(lang, 'admin_quiz_due_conflict'));
+        return;
+      }
       const activities: MetadataDoc['activities'] = [];
-      if (lms === 'demo' || quiz_id !== null) activities.push({ kind: 'quiz', instance_id: lms === 'demo' ? 1 : quiz_id!, name: lms === 'demo' ? 'Quiz 1' : 'Quiz', due: end_time });
+      if (lms === 'demo' || quiz_id !== null) activities.push({ kind: 'quiz', instance_id: lms === 'demo' ? 1 : quiz_id!, name: lms === 'demo' ? 'Quiz 1' : quiz_source?.name ?? 'Quiz', due: end_time });
       if (lms === 'demo' || assignment_id !== null) activities.push({ kind: 'assign', instance_id: lms === 'demo' ? 2 : assignment_id!, name: lms === 'demo' ? 'Essay 1' : 'Assignment', due: end_time });
       const doc: MetadataDoc = {
         version: 1,
@@ -130,7 +174,7 @@ function CreateChallenge() {
       <input className="input" placeholder="Title" maxLength={200} value={title} onChange={(e) => set_title(e.target.value)} />
       <label className="flex flex-col gap-1 text-sm">
         {t(lang, 'admin_lms')}
-        <select className="input" value={lms} onChange={(e) => {
+        <select className="input" value={lms} disabled={preview_busy} onChange={(e) => {
           const next = e.target.value === 'moodle' ? 'moodle' : 'demo';
           set_lms(next);
           set_site(next === 'moodle' ? DEFAULT_MOODLE_SITE : 'demo');
@@ -141,12 +185,36 @@ function CreateChallenge() {
       </label>
       <input className="input" placeholder="Site" maxLength={200} value={site} onChange={(e) => set_site(e.target.value)} />
       {lms === 'moodle' ? (
+        <>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm">{t(lang, 'admin_quiz_import')}</legend>
+          <label className="flex flex-col gap-1 text-sm">
+            {t(lang, 'admin_quiz_url')}
+            <input className="input" type="url" placeholder="https://…/mod/quiz/view.php?id=123" value={quiz_url}
+              disabled={preview_busy} onChange={e => { set_quiz_url(e.target.value); set_quiz_preview(null); set_preview_error(null); }} />
+          </label>
+          <button className="btn btn-ghost self-start" type="button"
+            disabled={preview_busy || !moodle_access.ready || !quiz_url.trim()} onClick={preview_quiz}>
+            {t(lang, preview_busy ? 'loading' : 'admin_quiz_preview')}
+          </button>
+          {preview_error && <p role="alert" className="text-sm">{t(lang,
+            preview_error === 'invalid_quiz_url' || preview_error === 'site_not_allowed' ? 'admin_quiz_invalid' :
+              preview_error === 'link_broken' || preview_error === 'moodle_access_denied' ? 'admin_quiz_access' : 'admin_quiz_failed')}</p>}
+          {quiz_preview && <div className="flex flex-col gap-2 rounded-md border border-[var(--border)] p-3 text-sm">
+            <strong>{quiz_preview.name}</strong>
+            <span className="break-all">{quiz_preview.site}</span>
+            <span>{t(lang, 'admin_course_id')} {quiz_preview.course_id} · {t(lang, 'admin_quiz_id')} {quiz_preview.instance_id}</span>
+            <span>{quiz_preview.due ? format_time(quiz_preview.due, lang) : t(lang, 'admin_quiz_no_due')}</span>
+            <button type="button" className="btn btn-ghost self-start" onClick={() => apply_preview(quiz_preview)}>{t(lang, 'admin_quiz_apply')}</button>
+          </div>}
+        </fieldset>
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm">{t(lang, 'admin_moodle_ids')}</legend>
           <input className="input num" inputMode="numeric" placeholder={t(lang, 'admin_course_id')} value={course} onChange={(e) => set_course(e.target.value)} />
           <input className="input num" inputMode="numeric" placeholder={t(lang, 'admin_quiz_id')} value={quiz} onChange={(e) => set_quiz(e.target.value)} />
           <input className="input num" inputMode="numeric" placeholder={t(lang, 'admin_assignment_id')} value={assignment} onChange={(e) => set_assignment(e.target.value)} />
         </fieldset>
+        </>
       ) : null}
       <select className="input" value={token_key} onChange={(e) => set_token_key(e.target.value as typeof token_key)}>
         {tokens.map((x) => (
@@ -157,11 +225,16 @@ function CreateChallenge() {
       </select>
       <div className="grid gap-2 min-[480px]:grid-cols-2">
         <input className="input num" placeholder="Join window (min)" value={join_min} onChange={(e) => set_join_min(e.target.value)} />
-        <input className="input num" placeholder="Due (hours)" value={due_hours} onChange={(e) => set_due_hours(e.target.value)} />
+        {fixed_due === null ? <input className="input num" placeholder="Due (hours)" value={due_hours} onChange={(e) => set_due_hours(e.target.value)} /> :
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{t(lang, 'admin_quiz_due')} · {format_time(fixed_due, lang)}</span>
+            <button type="button" className="btn btn-ghost" onClick={() => set_imported_due(null)}>{t(lang, 'admin_quiz_manual_due')}</button>
+          </div>}
         <input className="input num" placeholder="Min stake (USDC)" value={min_text} onChange={(e) => set_min(e.target.value)} />
         <input className="input num" placeholder="Max stake (USDC)" value={max_text} onChange={(e) => set_max(e.target.value)} />
       </div>
-      <button type="button" className="btn" disabled={!ready || !client || creating} onClick={create}>
+      {fixed_due !== null && fixed_due <= now + join_seconds && <p role="status" className="text-sm">{t(lang, 'admin_quiz_due_conflict')}</p>}
+      <button type="button" className="btn" disabled={!ready || !client || creating || preview_busy} onClick={create}>
         Create
       </button>
       <TxStatusLine state={state} lang={lang} />

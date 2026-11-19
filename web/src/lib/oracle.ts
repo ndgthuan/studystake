@@ -76,6 +76,14 @@ export interface MoodleSession {
   expires_at: number;
 }
 
+export interface QuizPreview {
+  site: string;
+  course_id: number;
+  instance_id: number;
+  name: string;
+  due: number | null;
+}
+
 export interface X402Stats {
   pay_to: `0x${string}`;
   asset: `0x${string}`;
@@ -94,6 +102,11 @@ export const oracle = {
   get_x402_stats: () => request<X402Stats>('/x402/stats'),
   post_session: (body: { wallet: string; issued_at: number; signature: string }) =>
     request<MoodleSession>('/session', { method: 'POST', body: JSON.stringify(body) }),
+  preview_quiz: (wallet: string, url: string, token: string) =>
+    request<QuizPreview>('/moodle/quiz-preview', {
+      method: 'POST', body: JSON.stringify({ wallet, url }),
+      headers: { authorization: `Bearer ${token}` },
+    }),
   check_join: (id: number, wallet: string, token: string) =>
     request<{ ok: true }>('/join/preflight', {
       method: 'POST', body: JSON.stringify({ challenge_id: id, wallet }),

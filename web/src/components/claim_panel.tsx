@@ -100,7 +100,7 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
   // Render nothing while loading. A loading line here stayed on screen after the panel's data resolved to "no claim".
   if (receipt_q.isLoading || preview_q.isLoading) return null;
 
-  if (receipt_q.isError || preview_q.isError) return <section className="card flex flex-col gap-3 p-4">
+  if (receipt_q.isError || preview_q.isError) return <section id="claim" className="card flex flex-col gap-3 p-4">
     <h2 className="font-semibold">{t(lang, 'claim')}</h2>
     <p role="status">{t(lang, 'claim_data_failed')}</p>
     <button type="button" className="btn btn-ghost" disabled={receipt_q.isFetching || preview_q.isFetching}
@@ -109,7 +109,7 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
   const r = receipt_q.data;
   if (r) {
     return (
-      <section className="card flex flex-col gap-3 p-4">
+      <section id="claim" className="card flex flex-col gap-3 p-4">
         <h2 className="font-semibold">{t(lang, 'claim')}</h2>
         <strong>{lang === 'vi' ? 'Đã nhận' : 'Claimed'}</strong>
         <PayoutLines lang={lang} principal={r.principal_out} reward={r.reward} />
@@ -143,7 +143,7 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
   }
 
   return (
-    <section className="card flex flex-col gap-3 p-4">
+    <section id="claim" className="card flex flex-col gap-3 p-4">
       <h2 className="font-semibold">{t(lang, 'claim')}</h2>
       <PayoutLines lang={lang} principal={p.principal_out} reward={p.reward} />
       <button

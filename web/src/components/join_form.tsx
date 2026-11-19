@@ -128,7 +128,7 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
   }
 
   return (
-    <section className="card flex flex-col gap-3 p-4">
+    <section id="join" className="card flex flex-col gap-3 p-4">
       <h2 className="font-semibold">{t(lang, 'join')}</h2>
       <label className="flex flex-col gap-1 text-sm">
         <span>{t(lang, 'join_amount')}</span>

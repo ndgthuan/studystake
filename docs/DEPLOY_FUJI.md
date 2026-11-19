@@ -131,8 +131,9 @@ Use one StudyStake wallet throughout. For an embedded email wallet, copy the add
 
 1. Connect the Creator wallet at `/admin`. Select **Moodle** under **Activity source**, keep the HCMUS site, and enter the course ID and at least one quiz or assignment **instance ID**. The `id` in a Moodle activity URL can be a course module ID. Use the activity instance ID from Moodle's course module data. Set the challenge end time to match the deadline you want to test.
 2. In the participant's own browser session, open `/link`, choose Moodle, and link the HCMUS account. Keep the Moodle token in the StudyStake form.
-3. Join the challenge on Fuji, then check the progress panel before and after submitting. Compare the quiz and assignment status with Moodle for the same account, and record the challenge ID, transaction hash and status. The API route is `/progress/<challengeId>/<wallet>`.
-4. Use a course and activity approved for the pilot. Finalized evidence is public and can include the wallet address, completion status and submission timestamps.
+3. From the challenge, sign in to the private Moodle check. Confirm it can read the required activities before signing the stake transaction. Check the progress panel before and after submitting and compare it with Moodle. Record the challenge ID, transaction hash and status.
+4. Use a course and activity approved for the pilot. Public evidence for new Moodle rounds shows the on-chain account and completion result. Submission timestamps are visible only in the participant's authenticated progress view. Previously committed evidence retains its original fields.
+5. Release the web and Worker updates together. Moodle progress and the pre-stake check need the Worker session API. Verify the checks on the target preview before sharing the submission link.
 
 ## P0 checklist
 - [ ] `contracts/deployments/43113.json` committed, 4 contracts verified on Snowtrace

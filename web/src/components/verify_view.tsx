@@ -44,12 +44,9 @@ export function VerifyView({ id_param }: { id_param: string }) {
       return logs[0]?.transactionHash ?? null;
     },
   });
-  if (id === null || chain_q.isError || ev_q.isError) return <p role="status">{t(lang,'error_load')}</p>;
-  if (chain?.ch.evidence_hash === ZERO_ROOT) return <p>{vi ? 'Chưa có bằng chứng công bố.' : 'Evidence has not been published yet.'}</p>;
-  if (!chain || !ev_q.data) return <p role="status">{t(lang,'loading')}</p>;
-  const { evidence, checks:result, verified } = ev_q.data;
   const tx = tx_q.data && explorer_tx(tx_q.data);
   const manager = explorer_address(addresses.manager);
+  const result = ev_q.data?.checks;
 
   return (
     <div className="verify-record flex flex-col gap-4">
@@ -59,11 +56,11 @@ export function VerifyView({ id_param }: { id_param: string }) {
       </h1>
 
       <section className="card verify-checks flex flex-col gap-3 p-4">
-        {verified && <div className="verification-seal">
+        {ev_q.data?.verified && chain && <div className="verification-seal">
           <span className="ink-stamp">{vi ? 'Khớp on-chain' : 'On-chain match'}</span>
           <ChainMark signal={chain.ch.evidence_hash} />
         </div>}
-        <Check
+        {chain && result && <><Check
           label={t(lang, 'verify_hash')}
           ok={result.hash_ok}
           onchain={chain.ch.evidence_hash}
@@ -76,13 +73,27 @@ export function VerifyView({ id_param }: { id_param: string }) {
           onchain={chain.ch.root}
           computed={result.computed_root ?? '—'}
           lang={lang}
-        />
+        /></>}
+        {(chain_q.isError || ev_q.isError) && <div>
+          <p role="status">{t(lang, 'error_load')}</p>
+          <button type="button" className="btn btn-ghost" disabled={chain_q.isFetching || ev_q.isFetching} onClick={() => {
+            if (chain_q.isError) void chain_q.refetch();
+            if (ev_q.isError && chain) void ev_q.refetch();
+          }}>{t(lang, 'retry')}</button>
+        </div>}
+        {id !== null && !chain_q.isError && !ev_q.isError && (chain?.ch.evidence_hash === ZERO_ROOT ?
+          <p>{vi ? 'Chưa có bằng chứng công bố.' : 'Evidence has not been published yet.'}</p> :
+          !result && <p role="status">{t(lang, 'loading')}</p>)}
+        {id === null && <p role="status">{t(lang, 'error_load')}</p>}
         {tx && <a className="record-link" href={tx} target="_blank" rel="noreferrer">{vi ? 'Giao dịch chốt kết quả' : 'Finalization transaction'} ↗</a>}
         {manager && <a className="record-link" href={manager} target="_blank" rel="noreferrer">{vi ? 'Hợp đồng thử thách' : 'Challenge contract'} ↗</a>}
-        {result.error ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{result.error}</p> : null}
+        {tx_q.isError && <button type="button" className="btn btn-ghost" disabled={tx_q.isFetching} onClick={() => void tx_q.refetch()}>
+          {vi ? 'Tải lại giao dịch chốt' : 'Retry finalization transaction'}
+        </button>}
+        {result?.error ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{result.error}</p> : null}
       </section>
 
-      <section className="card paper-on-scroll p-4">
+      {ev_q.data && <section className="card paper-on-scroll p-4">
         <h2 className="mb-2 font-semibold">{t(lang, 'participant')}</h2>
         <div className="overflow-x-auto">
           <table className="num w-full text-sm">
@@ -94,7 +105,7 @@ export function VerifyView({ id_param }: { id_param: string }) {
               </tr>
             </thead>
             <tbody>
-              {(evidence.entries ?? []).map((e) => (
+              {(ev_q.data.evidence.entries ?? []).map((e) => (
                 <tr key={e.account} className="border-t border-[var(--border)]">
                   <td className="py-1">{short_address(e.account)}</td>
                   <td className="py-1">{e.completed ? '✓' : '✗'}</td>
@@ -104,7 +115,7 @@ export function VerifyView({ id_param }: { id_param: string }) {
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { keccak256, toBytes } from 'viem';
-import { check_participant_completeness, clear_finished_tokens, type SettleDeps } from '../src/settle.ts';
+import { build_evidence, check_participant_completeness, clear_finished_tokens, run_settle_job, type SettleDeps } from '../src/settle.ts';
 import { check_evidence_upload, hash_canonical, load_committed_evidence, committed_proof } from '../src/evidence.ts';
 import { evidence_key, type Evidence } from '../src/merkle.ts';
 import { canonical_json } from '../src/canonical.ts';
@@ -9,6 +9,7 @@ import { reserve_faucet_grant, run_faucet_grant, faucet_user_key, faucet_wallet_
 import { ApiError } from '../src/http.ts';
 import { make_memory_kv } from './support/kv.ts';
 import { metadata_hash, metadata_key, type ChallengeMetadata } from '../src/metadata.ts';
+import { LmsError } from '../src/lms/types.ts';
 
 const MANAGER = '0x' + 'ab'.repeat(20);
 const ROOT = ('0x' + '0'.repeat(64)) as `0x${string}`;
@@ -122,6 +123,56 @@ describe('F2 participant completeness', () => {
     await kv.put('participants:1', JSON.stringify([A, B]));
     const deps = make_deps(kv, stub_port({ [A]: 1n, [B]: 1n }), []);
     expect(await check_participant_completeness(deps, make_challenge({ participant_count: 1 }))).toBe(false);
+  });
+});
+
+describe('Moodle settlement and evidence', () => {
+  it('defers a temporary Moodle error through the last second and expires at the grace deadline', async () => {
+    const kv = make_memory_kv();
+    const site = 'https://moodle.example.edu';
+    const meta: ChallengeMetadata = {
+      version: 1, title: 'Course', lms: 'moodle', site, course_id: 2,
+      activities: [{ kind: 'quiz', instance_id: 1, name: 'Quiz', due: 90 }], min_grade: null,
+    };
+    const hash = metadata_hash(meta);
+    const ch = make_challenge({ metadata_hash: hash, participant_count: 1 });
+    await kv.put('participants:1', JSON.stringify([A]));
+    await kv.put(`link:${A}`, JSON.stringify({ wallet: A, lms: 'moodle', site, userid: 1, token_enc: 'encrypted' }));
+    const deps = make_deps(kv, stub_port({ [A]: 5n }), []);
+    deps.port.block_number = async () => 6n;
+    deps.port.challenge_count = async () => 1;
+    deps.port.get_challenge = async () => ch;
+    deps.port.joined_at = async () => 50;
+    deps.port.expire = async () => '0xexpired';
+    deps.store.r2.get = async key => key === metadata_key(hash) ? { text: async () => canonical_json(meta) } : null;
+    deps.store.r2.put = async () => { throw new Error('unexpected evidence write'); };
+    deps.moodle_adapter = () => ({ get_activity_status: async () => { throw new LmsError('timed out', 'timeout'); } });
+    deps.now = () => ch.end_time + ch.settle_grace - 1;
+    expect((await run_settle_job(deps)).challenges).toEqual([{ id: 1, action: 'deferred', detail: 'lms_error' }]);
+    deps.now = () => ch.end_time + ch.settle_grace;
+    expect((await run_settle_job(deps)).challenges).toEqual([{ id: 1, action: 'expired', tx_hash: '0xexpired' }]);
+  });
+
+  it('publishes redacted Moodle evidence with the same Merkle root and proofs as v1', async () => {
+    const cfg = { chain_id: 31337, manager: MANAGER };
+    const ch = make_challenge({ status: STATUS.Settled });
+    const results: Parameters<typeof build_evidence>[4] = [{
+      account: A, subject_hash: 'student-subject', joined_at: 50,
+      result: {
+        account: A, stake: 5n, completed: true, reason: 'ok',
+        activities: [{ instance_id: 1, submitted: true, time_finished: 80, grade: 9, reason: 'ok' }],
+      },
+    }];
+    const legacy = build_evidence(cfg, ch, ch.metadata_hash, 100, results, 'demo');
+    const redacted = build_evidence(cfg, ch, ch.metadata_hash, 100, results, 'moodle');
+    expect(redacted.evidence.version).toBe(2);
+    expect(redacted.evidence.entries).toEqual([{ account: A, stake: '5', completed: true, reason: 'ok' }]);
+    expect(redacted.root).toBe(legacy.root);
+    const lookup = async (built: typeof redacted) => committed_proof({
+      put: async () => {}, get: async () => ({ text: async () => built.canonical }),
+    }, cfg.chain_id, { ...ch, evidence_hash: built.evidence_hash }, A);
+    expect(await lookup(redacted)).toEqual(await lookup(legacy));
+    expect(await lookup(redacted)).toEqual({ kind: 'ok', proof: { completed: true, stake: '5', proof: [] } });
   });
 });
 

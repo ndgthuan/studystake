@@ -8,6 +8,7 @@ import { canonical_json } from './canonical.ts';
 import { is_allowed_site, load_config, normalize_site, type Config, type Env } from './config.ts';
 import { consent_key, issue_credential, read_share_state, write_consent } from './credential.ts';
 import { decrypt_token, encrypt_token } from './crypto.ts';
+import { evaluate_activity, type Reason } from './evaluate.ts';
 import { run_faucet_grant, verify_turnstile } from './faucet.ts';
 import { check_evidence_upload, committed_proof, is_committed, load_committed_evidence } from './evidence.ts';
 import { ApiError, client_ip, cors_headers, error_response, json_response, MAX_EVIDENCE_BYTES, read_json } from './http.ts';
@@ -24,7 +25,7 @@ import {
 } from './link.ts';
 import { create_demo_adapter, has_demo_activity, record_demo_submission, type KvLike } from './lms/demo.ts';
 import { create_moodle_adapter, fetch_userid } from './lms/moodle.ts';
-import { LmsError, type ActivityStatus, type LinkInfo } from './lms/types.ts';
+import { LmsError, type LinkInfo } from './lms/types.ts';
 import { metadata_hash, metadata_key, parse_metadata, verify_metadata, type ChallengeMetadata } from './metadata.ts';
 import { evidence_key, subject_hash_of } from './merkle.ts';
 import {
@@ -35,6 +36,7 @@ import {
   progress_user_error,
 } from './progress.ts';
 import { check_rate_limit } from './ratelimit.ts';
+import { check_session_assertion, issue_session, require_session, session_message, SESSION_ASSERTION_TTL_SECONDS } from './session.ts';
 import { participants_of, run_settle_job, type SettleDeps } from './settle.ts';
 import { get_link, get_text, link_is_active, link_key, put_evidence, put_json, subject_key, type LinkRecord, type R2Like, type Store } from './store.ts';
 import {
@@ -99,6 +101,11 @@ const signed_schema = z.strictObject({
   signature: hex_sig,
   issued_at: z.number().int().positive(),
 });
+const preflight_schema = z.strictObject({
+  wallet: wallet_schema,
+  challenge_id: z.number().int().positive(),
+});
+const NO_STORE = { 'cache-control': 'no-store' };
 const metadata_post_schema = z.strictObject({
   wallet: wallet_schema,
   signature: hex_sig,
@@ -129,7 +136,7 @@ export default {
       if (!(err instanceof ApiError)) {
         console.log(JSON.stringify({ event: 'unhandled', message: err instanceof Error ? err.message : String(err) }));
       }
-      return error_response(err, cors);
+      return error_response(err, { ...cors, ...NO_STORE });
     }
   },
 
@@ -178,6 +185,8 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
 
   if (req.method === 'POST' && path === '/link') return handle_link(req, rt, now);
   if (req.method === 'DELETE' && path === '/link') return handle_unlink(req, rt, now);
+  if (req.method === 'POST' && path === '/session') return handle_session(req, rt, now);
+  if (req.method === 'POST' && path === '/join/preflight') return handle_join_preflight(req, rt, now);
 
   if (req.method === 'GET' && parts[0] === 'link' && parts.length === 2) {
     const link = await get_link(rt.store.kv, parts[1]!);
@@ -301,7 +310,9 @@ async function handle_link(req: Request, rt: Runtime, now: number): Promise<Resp
     } catch (err) {
       if (!(err instanceof LmsError)) throw err;
       if (err.code === 'invalid_token') throw new ApiError(400, 'invalid_token', 'Moodle rejected the token');
-      if (err.code === 'lms_client_error') throw new ApiError(400, 'moodle_access_denied', 'Moodle denied web service access');
+      if (err.code === 'lms_client_error' || err.code === 'activity_access_denied') {
+        throw new ApiError(400, 'moodle_access_denied', 'Moodle denied web service access');
+      }
       throw new ApiError(502, 'moodle_unavailable', 'Moodle did not return account information');
     }
     subject_hash = subject_hash_of(site, userid);
@@ -342,6 +353,59 @@ async function handle_unlink(req: Request, rt: Runtime, now: number): Promise<Re
   }
   await rt.store.kv.delete(consent_key(wallet));
   return json_response({ ok: true }, 200);
+}
+
+async function handle_session(req: Request, rt: Runtime, now: number): Promise<Response> {
+  const limited = await check_rate_limit(rt.store.kv, 'session', client_ip(req), 20, 60, now);
+  if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
+  const body = await read_json(req, signed_schema);
+  const origin = new URL(req.url).origin;
+  check_session_assertion(body.issued_at, now);
+  require_signature(await signature_matches(body.wallet, session_message(body.wallet, origin, body.issued_at), body.signature));
+  const nonce = nonce_key(body.wallet, 'moodle', origin, body.issued_at, 'session');
+  if ((await rt.store.kv.get(nonce)) !== null) throw new ApiError(409, 'replay', 'signature already used');
+  await rt.store.kv.put(nonce, '1', { expirationTtl: SESSION_ASSERTION_TTL_SECONDS + 60 });
+  return json_response(await issue_session(body.wallet, origin, body.issued_at, rt.cfg.token_enc_key), 200, NO_STORE);
+}
+
+async function handle_join_preflight(req: Request, rt: Runtime, now: number): Promise<Response> {
+  const limited = await check_rate_limit(rt.store.kv, 'join_preflight', client_ip(req), 10, 60, now);
+  if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
+  const body = await read_json(req, preflight_schema);
+  const id = body.challenge_id;
+  await require_session(req, body.wallet, now, rt.cfg.token_enc_key);
+  const ch = await rt.port.get_challenge(id);
+  if (ch.status === STATUS.None) throw new ApiError(404, 'not_found', 'challenge not found');
+  if (ch.status !== STATUS.Open || now >= ch.join_deadline) throw new ApiError(409, 'join_closed', 'challenge is closed to joins');
+  const meta = await load_metadata_by_hash(rt, ch.metadata_hash);
+  if (meta === null) throw new ApiError(404, 'not_found', 'metadata not found');
+  if (meta.lms === 'demo') return json_response({ ok: true }, 200, NO_STORE);
+  const link = await get_link(rt.store.kv, body.wallet);
+  if (!link_is_active(link) || !link_matches_challenge(link, meta) || link.userid === null) {
+    throw new ApiError(403, 'link_broken', 'link an active Moodle account for this challenge site');
+  }
+  try {
+    const info = await activity_link_info(rt, link, body.wallet, id);
+    const adapter = create_moodle_adapter();
+    // Moodle validates the activity and its course context. An empty attempts array is a valid read.
+    for (const activity of meta.activities) await adapter.get_activity_status(info, activity);
+  } catch (err) {
+    if (err instanceof LmsError) {
+      if (err.code === 'invalid_token' || err.code === 'not_linked') {
+        throw new ApiError(403, 'link_broken', 'Moodle rejected the linked account token');
+      }
+      if (err.code === 'lms_client_error' || err.code === 'activity_access_denied') {
+        throw new ApiError(403, 'moodle_access_denied', 'Moodle did not allow access to the challenge activities');
+      }
+    }
+    throw new ApiError(503, 'moodle_unavailable', 'Moodle could not verify access to the challenge activities');
+  }
+  return json_response({ ok: true }, 200, NO_STORE);
+}
+
+async function activity_link_info(rt: Runtime, link: LinkRecord, wallet: string, challenge_id: number): Promise<LinkInfo> {
+  const token = link.token_enc === null ? null : await decrypt_token(link.token_enc, rt.cfg.token_enc_key);
+  return { lms: link.lms, site: link.site, userid: link.userid, wallet, token, challenge_id };
 }
 
 /** The student opts in or out of selling their credential. Both directions need a fresh, single-use wallet signature. */
@@ -400,7 +464,9 @@ interface ProgressActivity {
   instance_id: number;
   kind: string;
   submitted: boolean;
+  eligible: boolean;
   time_finished: number | null;
+  reason: Reason | 'not_joined';
   status: 'ok' | 'missing' | 'link_broken' | 'lms_unavailable' | 'unknown';
 }
 
@@ -412,47 +478,63 @@ async function handle_progress(req: Request, rt: Runtime, id: number, wallet: st
   const limited = await check_rate_limit(rt.store.kv, 'progress', client_ip(req), PROGRESS_RATE_LIMIT, PROGRESS_RATE_WINDOW_SECONDS, now);
   if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
 
-  const cache_key = progress_cache_key(id, wallet);
-  const cached = await rt.store.kv.get(cache_key);
-  if (cached !== null) return new Response(cached, { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } });
-
   const ch = await rt.port.get_challenge(id);
   if (ch.status === STATUS.None) throw new ApiError(404, 'not_found', 'challenge not found');
   const meta = await load_metadata_by_hash(rt, ch.metadata_hash);
   if (meta === null) throw new ApiError(404, 'not_found', 'metadata not found');
-  const link = await get_link(rt.store.kv, wallet);
-  const stake = await rt.port.stake_of(id, wallet);
+  if (meta.lms === 'moodle') await require_session(req, wallet, now, rt.cfg.token_enc_key);
+  const [link, stake, joined_at] = await Promise.all([
+    get_link(rt.store.kv, wallet), rt.port.stake_of(id, wallet), rt.port.joined_at(id, wallet),
+  ]);
+  const active = link_is_active(link) && link_matches_challenge(link, meta);
+  const cache_key = active && stake > 0n ? progress_cache_key(id, wallet, meta.lms === 'moodle' ? `${joined_at}:${link.linked_at ?? 0}` : '') : null;
+  const cached = cache_key === null ? null : await rt.store.kv.get(cache_key);
+  if (cached !== null) {
+    return new Response(cached, { headers: { 'content-type': 'application/json; charset=utf-8', ...NO_STORE } });
+  }
+  const adapter = meta.lms === 'demo' ? create_demo_adapter(rt.store.kv) : create_moodle_adapter({ want_grade: meta.min_grade !== null });
+  const info = active && stake > 0n ? await activity_link_info(rt, link, wallet, id).catch(() => null) : null;
   const activities: ProgressActivity[] = [];
   for (const act of meta.activities) {
     const base = { instance_id: act.instance_id, kind: act.kind };
-    if (link === null || stake === 0n) {
-      activities.push({ ...base, submitted: false, time_finished: null, status: 'missing' });
+    const empty = { ...base, submitted: false, eligible: false, time_finished: null };
+    if (stake === 0n) {
+      activities.push({ ...empty, status: 'missing', reason: 'not_joined' });
       continue;
     }
-    if (!link_matches_challenge(link, meta)) {
-      activities.push({ ...base, submitted: false, time_finished: null, status: 'link_broken' });
+    if (link === null) {
+      activities.push({ ...empty, status: 'missing', reason: 'not_linked' });
+      continue;
+    }
+    if (!active) {
+      const reason = link_matches_challenge(link, meta) ? 'link_broken' : 'not_linked';
+      activities.push({ ...empty, status: 'link_broken', reason });
+      continue;
+    }
+    if (info === null) {
+      activities.push({ ...empty, status: 'unknown', reason: 'lms_error' });
       continue;
     }
     try {
-      const adapter =
-        link.lms === 'demo' ? create_demo_adapter(rt.store.kv) : create_moodle_adapter({ want_grade: meta.min_grade !== null });
-      const token = link.token_enc === null ? null : await decrypt_token(link.token_enc, rt.cfg.token_enc_key);
-      const info: LinkInfo = { lms: link.lms, site: link.site, userid: link.userid, wallet, token, challenge_id: id };
-      const s: ActivityStatus = await adapter.get_activity_status(info, act);
+      const status = await adapter.get_activity_status(info, act);
+      const verdict = evaluate_activity({ ...act, ok: true, status }, joined_at, ch.end_time, meta.min_grade);
       activities.push({
         ...base,
-        submitted: s.submitted,
-        time_finished: s.finished_times[0] ?? null,
-        status: s.submitted ? 'ok' : 'missing',
+        submitted: verdict.submitted,
+        eligible: verdict.reason === 'ok',
+        time_finished: verdict.time_finished,
+        status: verdict.submitted ? 'ok' : 'missing',
+        reason: verdict.reason,
       });
     } catch (err) {
       const code = err instanceof LmsError ? err.code : 'other';
-      activities.push({ ...base, submitted: false, time_finished: null, status: progress_user_error(code) });
+      const status = progress_user_error(code);
+      activities.push({ ...empty, status, reason: status === 'link_broken' ? 'link_broken' : 'lms_error' });
     }
   }
   const body = { challenge_id: id, wallet, stake: stake.toString(), activities, as_of: now };
-  await rt.store.kv.put(cache_key, JSON.stringify(body), { expirationTtl: PROGRESS_CACHE_TTL_SECONDS });
-  return json_response(body, 200);
+  if (cache_key !== null) await rt.store.kv.put(cache_key, JSON.stringify(body), { expirationTtl: PROGRESS_CACHE_TTL_SECONDS });
+  return json_response(body, 200, NO_STORE);
 }
 
 /** The challenge must exist and have a committed evidence_hash (Settled, Disputed or Finalized). */

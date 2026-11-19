@@ -50,7 +50,7 @@ describe('F4 demo submit validation', () => {
 
 describe('F4 progress cache and rate limit', () => {
   it('cache key is per (challenge, lowercased wallet)', () => {
-    expect(progress_cache_key(4, WALLET.toUpperCase().replace('0X', '0x'))).toBe(`progress:4:${WALLET}`);
+    expect(progress_cache_key(4, WALLET.toUpperCase().replace('0X', '0x'))).toBe(`progress:v2:4:${WALLET}`);
     expect(progress_cache_key(4, WALLET)).not.toBe(progress_cache_key(5, WALLET));
   });
 

@@ -22,7 +22,7 @@ Source of truth for `web/`. When in conflict with SPEC.md §6, this file wins.
 3. `/challenges/[id]`:
    - Info: activities and deadlines, stake range, total stake, reward pool (bonus + yield estimated from `vault.convertToAssets`), vault/token addresses with explorer links.
    - **Join:** enter an amount (min/max), shows the USDC balance. If the token supports permit, sign a permit then send `join_with_permit` (1 transaction), otherwise `approve` + `join`. A button to get tUSDC (`faucet()`) when using tUSDC.
-   - **Progress:** `GET /progress/:id/:wallet`, each activity has a ✓/✗ state and a submission time. Demo challenges have a "Submit demo" button (signs a message then calls `POST /demo/submit`).
+   - **Progress:** For Moodle, a wallet signature opens a private session for `GET /progress/:id/:wallet`. The checklist shows recorded and eligible submissions separately and explains a submission that missed a rule. Demo challenges still have a "Submit demo" button (signs a message then calls `POST /demo/submit`).
    - **After the end:** phase badge, evidence link (`/verify/[id]`). During the dispute window there is a dispute button (enter a reason, send its `keccak` to `dispute`).
    - **Claim:** `preview_claim` shows principal and reward. Gets the proof from `GET /proof/:id/:account`, sends `claim(id, completed, proof)` with estimated `gas` plus a margin (mind `InsufficientGas`). Finalize/expire buttons appear when the phase is `Finalizable`/`Expirable` (anyone can press them).
 4. `/me`: stakes (scans the wallet's `Joined` events), the state of each stake, quick claim, badge (reads `tokenURI`, renders the on-chain SVG), streak, current LMS link.

@@ -6,7 +6,7 @@ const WALLET = '0x' + 'cd'.repeat(20);
 
 describe('progress cache invalidation after a demo submit', () => {
   it('the key is per (challenge, wallet) and lowercases the wallet', () => {
-    expect(progress_cache_key(3, WALLET.toUpperCase().replace('0X', '0x'))).toBe(`progress:3:${WALLET}`);
+    expect(progress_cache_key(3, WALLET.toUpperCase().replace('0X', '0x'))).toBe(`progress:v2:3:${WALLET}`);
   });
 
   it('deleting the key for one challenge leaves another challenge cached', async () => {

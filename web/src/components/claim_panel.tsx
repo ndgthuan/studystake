@@ -58,7 +58,7 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
         fromBlock, toBlock,
       }));
       const log = logs[0];
-      if (!log) return null;
+      if (!log) throw new Error('Claimed event unavailable');
       return {
         principal_out: log.args.principal_out!,
         reward: log.args.reward!,
@@ -69,7 +69,7 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
 
   // Unclaimed preview: stake, claimed flag, proof and preview_claim.
   const preview_q = useQuery<Preview | null>({
-    queryKey: ['preview', id.toString(), wallet ?? null],
+    queryKey: ['preview', id.toString(), wallet ?? null, phase],
     enabled: !!wallet && claimable_phase && receipt_q.isSuccess && receipt_q.data === null,
     queryFn: async () => {
       const acc = wallet!;
@@ -82,6 +82,9 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
       if (stake === 0n) return null;
       // Only an expired challenge can return principal without consulting the completion record.
       const proof_body = phase === 'Expired' ? null : await oracle.get_proof(Number(id), acc);
+      if (phase === 'Finalized' && (!proof_body || typeof proof_body.completed !== 'boolean' ||
+        !Array.isArray(proof_body.proof) || !proof_body.proof.every(hash => /^0x[0-9a-f]{64}$/i.test(hash)) ||
+        proof_body.stake !== stake.toString())) throw new Error('Invalid claim proof response');
       const completed = proof_body?.completed ?? false;
       const [principal_out, reward] = (await public_client.readContract({
         address: addresses.manager,
@@ -97,7 +100,12 @@ export function ClaimPanel({ id, phase, wallet }: { id: bigint; phase: PhaseName
   // Render nothing while loading. A loading line here stayed on screen after the panel's data resolved to "no claim".
   if (receipt_q.isLoading || preview_q.isLoading) return null;
 
-  if (receipt_q.isError || preview_q.isError) return <p role="status">{t(lang,'error_load')}</p>;
+  if (receipt_q.isError || preview_q.isError) return <section className="card flex flex-col gap-3 p-4">
+    <h2 className="font-semibold">{t(lang, 'claim')}</h2>
+    <p role="status">{t(lang, 'claim_data_failed')}</p>
+    <button type="button" className="btn btn-ghost" disabled={receipt_q.isFetching || preview_q.isFetching}
+      onClick={() => void (receipt_q.isError ? receipt_q.refetch() : preview_q.refetch())}>{t(lang, 'retry')}</button>
+  </section>;
   const r = receipt_q.data;
   if (r) {
     return (

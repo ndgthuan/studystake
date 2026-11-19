@@ -81,7 +81,7 @@ export function ChallengeList() {
   const rows = (q.data ?? []).filter((r) => filter === 'all' || r.phase === filter);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="challenge-catalog flex flex-col gap-4">
       <h1 className="text-2xl font-bold">{t(lang, 'nav_challenges')}</h1>
       <div className="filter-strip flex flex-wrap gap-2">
         {FILTERS.map((f) => (
@@ -99,7 +99,7 @@ export function ChallengeList() {
       {q.isLoading ? <p className="text-[var(--muted)]">{t(lang, 'loading')}</p> : null}
       {q.error ? <p className="text-[var(--muted)]">{t(lang, 'error_load')}</p> : null}
       {q.data && rows.length === 0 ? <p className="text-[var(--muted)]">{t(lang, 'no_challenges')}</p> : null}
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="catalog-grid grid gap-3 sm:grid-cols-2">
         {rows.map((r) => (
           <li key={r.id}>
             <Link href={`/challenges/${r.id}`} className="catalog-card">
@@ -111,7 +111,7 @@ export function ChallengeList() {
               <div className="num text-sm text-[var(--muted)]">
                 {format_usdc(r.total_principal)} USDC · {r.participant_count} {lang === 'vi' ? 'người' : 'people'}
               </div>
-              <div className="num text-sm">{r.phase === 'Joining' ? (lang === 'vi' ? 'Hạn tham gia' : 'Enrollment closes') : (lang === 'vi' ? 'Hạn nộp' : 'Due')} · {format_time(r.target,lang)} <b aria-hidden="true">↗</b></div>
+              <div className="num text-sm">{r.phase === 'Joining' ? (lang === 'vi' ? 'Hạn tham gia' : 'Enrollment closes') : (lang === 'vi' ? 'Hạn nộp' : 'Due')} · {format_time(r.target,lang)} <b className="catalog-arrow" aria-hidden="true">↗</b></div>
             </Link>
           </li>
         ))}

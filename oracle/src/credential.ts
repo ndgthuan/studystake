@@ -102,7 +102,7 @@ export function consent_key(wallet: string): string {
 
 /** Off by default. Consent covers one LMS account, so linking the wallet to another account voids it. */
 export function is_shared(consent: ConsentRecord | null, link: LinkRecord | null): boolean {
-  return consent !== null && link !== null && consent.share && consent.subject_hash === link.subject_hash;
+  return consent !== null && link !== null && !link.revoked && consent.share && consent.subject_hash === link.subject_hash;
 }
 
 /** Whether a credential may be sold for this wallet right now. */

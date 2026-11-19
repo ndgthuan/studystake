@@ -41,6 +41,12 @@ export interface MetadataDoc {
   min_grade: number | null;
 }
 
+export interface LinkState {
+  linked: boolean;
+  lms?: 'moodle' | 'demo';
+  site?: string;
+}
+
 export interface ProgressActivity {
   instance_id: number;
   kind: string;
@@ -82,8 +88,8 @@ export interface EvidenceEntryView {
 export const oracle = {
   get_metadata: (hash: string) => request<MetadataDoc>(`/metadata/${hash}`),
   post_metadata: (body: unknown) => request<{ metadata_hash: string; metadata_uri: string }>(`/metadata`, { method: 'POST', body: JSON.stringify(body) }),
-  get_link: (wallet: string) => request<{ linked: boolean; lms?: string; site?: string }>(`/link/${wallet}`),
-  post_link: (body: unknown) => request<{ lms: string; site: string; linked: boolean }>(`/link`, { method: 'POST', body: JSON.stringify(body) }),
+  get_link: (wallet: string) => request<LinkState>(`/link/${wallet}`, { cache: 'no-store' }),
+  post_link: (body: unknown) => request<LinkState>(`/link`, { method: 'POST', body: JSON.stringify(body) }),
   delete_link: (body: unknown) => request<{ ok: boolean }>(`/link`, { method: 'DELETE', body: JSON.stringify(body) }),
   get_consent: (wallet: string) => request<{ wallet: string; share: boolean }>(`/x402/credential/${wallet}/consent`),
   post_consent: (body: unknown) => request<{ wallet: string; share: boolean }>(`/x402/credential/consent`, { method: 'POST', body: JSON.stringify(body) }),

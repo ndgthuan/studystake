@@ -3,8 +3,9 @@ import { keccak256, toBytes } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { normalize_site, type Env } from '../src/config.ts';
 import worker from '../src/index.ts';
-import { link_message } from '../src/link.ts';
-import { get_link } from '../src/store.ts';
+import { link_matches_challenge, link_message } from '../src/link.ts';
+import type { ChallengeMetadata } from '../src/metadata.ts';
+import { get_link, type LinkRecord } from '../src/store.ts';
 import { make_memory_kv } from './support/kv.ts';
 
 const SITE = 'https://courses.ctda.hcmus.edu.vn';
@@ -85,6 +86,41 @@ describe('one Moodle account binds to one wallet, however the site is typed', ()
     const res = (await link(make_memory_kv(), 'https://evil.example/')).res;
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe('site_not_allowed');
+  });
+
+  it('returns an actionable error without storing a link when Moodle rejects the token', async () => {
+    vi.stubGlobal('fetch', async () => Response.json({ exception: 'moodle_exception', errorcode: 'invalidtoken' }));
+    const kv = make_memory_kv();
+    const { res, wallet } = await link(kv, SITE);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: { code: 'invalid_token' } });
+    expect(await get_link(kv, wallet)).toBeNull();
+  });
+
+  it('reports revoked Moodle links as unlinked', async () => {
+    const kv = make_memory_kv();
+    const { res, wallet } = await link(kv, SITE);
+    expect(res.status).toBe(200);
+    const request = () => new Request(`https://oracle.test/link/${wallet}`);
+    expect(await (await worker.fetch(request(), make_env(kv))).json()).toMatchObject({ linked: true });
+
+    const stored = await get_link(kv, wallet);
+    await kv.put(`link:${wallet.toLowerCase()}`, JSON.stringify({ ...stored, token_enc: null }));
+    expect(await (await worker.fetch(request(), make_env(kv))).json()).toEqual({ linked: false });
+  });
+});
+
+describe('Moodle challenge source', () => {
+  const meta: Pick<ChallengeMetadata, 'lms' | 'site'> = { lms: 'moodle', site: `${SITE}/` };
+  const linked: Pick<LinkRecord, 'lms' | 'site'> = { lms: 'moodle', site: SITE };
+
+  it('accepts the same Moodle site regardless of a trailing slash', () => {
+    expect(link_matches_challenge(linked, meta)).toBe(true);
+  });
+
+  it('rejects a different Moodle site or a Demo LMS link', () => {
+    expect(link_matches_challenge({ ...linked, site: 'https://other.example' }, meta)).toBe(false);
+    expect(link_matches_challenge({ lms: 'demo', site: 'demo' }, meta)).toBe(false);
   });
 });
 

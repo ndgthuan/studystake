@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { keccak256, toBytes } from 'viem';
-import { check_participant_completeness, type SettleDeps } from '../src/settle.ts';
+import { check_participant_completeness, clear_finished_tokens, type SettleDeps } from '../src/settle.ts';
 import { check_evidence_upload, hash_canonical, load_committed_evidence, committed_proof } from '../src/evidence.ts';
 import { evidence_key, type Evidence } from '../src/merkle.ts';
 import { canonical_json } from '../src/canonical.ts';
@@ -8,6 +8,7 @@ import { STATUS, type ChainPort, type ChallengeRow } from '../src/chain.ts';
 import { reserve_faucet_grant, run_faucet_grant, faucet_user_key, faucet_wallet_key, FAUCET_PENDING } from '../src/faucet.ts';
 import { ApiError } from '../src/http.ts';
 import { make_memory_kv } from './support/kv.ts';
+import { metadata_hash, metadata_key, type ChallengeMetadata } from '../src/metadata.ts';
 
 const MANAGER = '0x' + 'ab'.repeat(20);
 const ROOT = ('0x' + '0'.repeat(64)) as `0x${string}`;
@@ -121,6 +122,41 @@ describe('F2 participant completeness', () => {
     await kv.put('participants:1', JSON.stringify([A, B]));
     const deps = make_deps(kv, stub_port({ [A]: 1n, [B]: 1n }), []);
     expect(await check_participant_completeness(deps, make_challenge({ participant_count: 1 }))).toBe(false);
+  });
+});
+
+describe('Moodle token cleanup', () => {
+  const site = 'https://courses.ctda.hcmus.edu.vn';
+  const moodle: ChallengeMetadata = {
+    version: 1, title: 'Course', lms: 'moodle', site, course_id: 2,
+    activities: [{ kind: 'quiz', instance_id: 1, name: 'Quiz', due: 80 }], min_grade: null,
+  };
+
+  async function clean(meta: ChallengeMetadata, linked_at: number, second?: ChallengeRow) {
+    const kv = make_memory_kv();
+    await kv.put('participants:1', JSON.stringify([A]));
+    if (second) await kv.put('participants:2', JSON.stringify([A]));
+    await kv.put(`link:${A}`, JSON.stringify({ wallet: A, lms: 'moodle', site, token_enc: 'encrypted', linked_at }));
+    const hash = metadata_hash(meta);
+    const deps = make_deps(kv, stub_port({}), []);
+    deps.port.get_challenge = async id => id === 2 && second ? second :
+      make_challenge({ status: STATUS.Finalized, finalized_at: 100, metadata_hash: hash });
+    deps.store.r2.get = async key => key === metadata_key(hash) ? { text: async () => canonical_json(meta) } : null;
+    await clear_finished_tokens(deps, second ? 2 : 1);
+    return JSON.parse((await kv.get(`link:${A}`))!).token_enc;
+  }
+
+  it('keeps a Moodle token after a Demo LMS round', async () => {
+    expect(await clean({ ...moodle, lms: 'demo', site: 'demo' }, 50)).toBe('encrypted');
+  });
+
+  it('keeps a refreshed token after an older Moodle round', async () => {
+    expect(await clean(moodle, 110)).toBe('encrypted');
+  });
+
+  it('clears a token used in a finished Moodle round unless the wallet has an unsettled round', async () => {
+    expect(await clean(moodle, 50)).toBeNull();
+    expect(await clean(moodle, 50, make_challenge({ status: STATUS.Disputed }))).toBe('encrypted');
   });
 });
 

@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWalletClient } from 'wagmi';
 import { use_ui } from '@/hooks/use_ui';
@@ -9,6 +10,7 @@ import { demo_submit_message } from '@/lib/messages';
 import { SubmissionReplay } from './submission_replay';
 import { useState } from 'react';
 import type { Evidence } from '@/lib/verify';
+import { useActionNotice } from './action_notices';
 
 interface Props {
   id: bigint;
@@ -32,6 +34,7 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
   const entry = wallet && final ? evidence?.entries.find(e => e.account.toLowerCase() === wallet.toLowerCase()) : undefined;
   const archived = final && !!evidence;
   const current = archived ? entry?.activities : q.data?.activities;
+  const link_broken = !archived && q.data?.activities.some(a => a.status === 'link_broken');
   const done = current?.filter(a => a.submitted).length;
   const count = meta?.activities.length;
   const replay_entry = wallet ? entry : evidence?.entries.find(e => e.completed) ?? evidence?.entries[0];
@@ -53,7 +56,8 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
             q.data?.activities.find(a => a.instance_id === task.instance_id && a.kind === task.kind);
           const recorded = evidence?.entries.filter(e => e.activities.some(a => a.instance_id === task.instance_id && a.submitted)).length;
           const status = state?.submitted ? (vi ? `${source} đã ghi nhận` : `Recorded by ${source}`) :
-            state && 'status' in state && state.status !== 'missing' ? String(state.status) :
+            state && 'status' in state && state.status === 'link_broken' ? t(lang, 'progress_link_broken') :
+            state && 'status' in state && state.status !== 'missing' ? t(lang, 'progress_unavailable') :
             state ? (vi ? 'Chưa ghi nhận' : 'No submission') : undefined;
           return <li key={`${task.kind}-${task.instance_id}`}>
             <span className={`task-number ${state?.submitted ? 'recorded' : ''}`} aria-hidden="true">{state?.submitted ? '✓' : String(i+1).padStart(2,'0')}</span>
@@ -65,6 +69,7 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
         {meta.min_grade !== null && <p>{vi ? 'Điểm tối thiểu' : 'Minimum grade'} · {meta.min_grade}</p>}
         {wallet && !archived && q.isError && <p role="status">{t(lang,'error_load')}</p>}
         {wallet && archived && !entry && <small>{vi ? 'Ví này không có trong danh sách kết quả.' : 'This wallet has no entry in the results.'}</small>}
+        {link_broken && <Link className="record-link" href="/link">{t(lang, 'link_title')} ↗</Link>}
         {course_url && accepting_demo && <a className="btn task-cta" href={course_url} target="_blank" rel="noreferrer">{vi ? 'Mở Moodle' : 'Open Moodle'} ↗</a>}
         {meta.lms === 'demo' && accepting_demo && wallet && enrolled &&
           <DemoSubmit id={id} wallet={wallet} activities={meta.activities.map(a => a.instance_id)} />}
@@ -75,6 +80,7 @@ export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed
 /** Demo submit: the wallet signs a message, then the oracle records the submission. DEMO only. */
 function DemoSubmit({ id, wallet, activities }: { id: bigint; wallet: `0x${string}`; activities: number[] }) {
   const { lang } = use_ui();
+  const notify = useActionNotice();
   const { data: client } = useWalletClient();
   const qc = useQueryClient();
   const [busy, set_busy] = useState<number | null>(null);
@@ -90,9 +96,11 @@ function DemoSubmit({ id, wallet, activities }: { id: bigint; wallet: `0x${strin
       const signature = await client.signMessage({ account: wallet, message });
       await oracle.post_demo_submit({ wallet, challenge_id: Number(id), instance_id, signature, issued_at });
       set_msg('DEMO · OK');
+      notify({ tone: 'success', title: t(lang, 'notice_submission') });
       await qc.invalidateQueries({ queryKey: ['progress'] });
     } catch (err) {
       set_msg(err instanceof Error ? err.message : String(err));
+      notify({ tone: 'error', title: t(lang, 'notice_submission_failed') });
     } finally {
       set_busy(null);
     }

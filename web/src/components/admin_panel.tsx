@@ -46,8 +46,8 @@ function CreateChallenge() {
   const qc = useQueryClient();
   const { state, run } = use_tx(lang, () => invalidate_challenge_queries(qc));
   const [title, set_title] = useState('');
-  const [lms, set_lms] = useState<MetadataDoc['lms']>('demo');
-  const [site, set_site] = useState('demo');
+  const [lms, set_lms] = useState<MetadataDoc['lms']>(CHAIN_ID === 43113 ? 'moodle' : 'demo');
+  const [site, set_site] = useState(CHAIN_ID === 43113 ? DEFAULT_MOODLE_SITE : 'demo');
   const [course, set_course] = useState('');
   const [quiz, set_quiz] = useState('');
   const [assignment, set_assignment] = useState('');
@@ -155,7 +155,7 @@ function CreateChallenge() {
           </option>
         ))}
       </select>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-2 min-[480px]:grid-cols-2">
         <input className="input num" placeholder="Join window (min)" value={join_min} onChange={(e) => set_join_min(e.target.value)} />
         <input className="input num" placeholder="Due (hours)" value={due_hours} onChange={(e) => set_due_hours(e.target.value)} />
         <input className="input num" placeholder="Min stake (USDC)" value={min_text} onChange={(e) => set_min(e.target.value)} />
@@ -246,7 +246,7 @@ function SponsorForm({ can_sponsor_manually, treasury, is_treasury }: {
   return (
     <section className="card flex flex-col gap-3 p-4">
       <h2 className="font-semibold">Sponsor</h2>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-2 min-[480px]:grid-cols-2">
         <input className="input num" aria-label={t(lang, 'sponsor_challenge_id')} placeholder={t(lang, 'sponsor_challenge_id')} value={id_text} onChange={(e) => set_id(e.target.value)} />
         {can_sponsor_manually ? <input className="input num" placeholder="Amount (USDC)" value={amount_text} onChange={(e) => set_amount(e.target.value)} /> : null}
       </div>

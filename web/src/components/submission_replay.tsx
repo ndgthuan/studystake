@@ -44,8 +44,9 @@ export function SubmissionReplay({ entry, tasks, lang }: Props) {
       </div>
     </div>
     <p aria-live="polite">{step === last ? <span className="ink-stamp">✓ {vi ? 'Đã chốt kết quả' : 'Result finalized'}</span> :
-      event ? <>{task?.name ?? `#${event.instance_id}`} · {format_time(event.time_finished!,lang)}</> :
-      (vi ? 'Trước lượt nộp đầu tiên' : 'Before the first submission')}</p>
+      <span className="replay-event" key={step}>{event
+        ? `${task?.name ?? `#${event.instance_id}`} · ${format_time(event.time_finished!, lang)}`
+        : (vi ? 'Trước lượt nộp đầu tiên' : 'Before the first submission')}</span>}</p>
     {step === last ? <button onClick={start}>{vi ? 'Phát lại' : 'Replay'} ↺</button> :
       <><button onClick={() => set_playing(!playing)}>{playing ? (vi ? 'Tạm dừng' : 'Pause') : (vi ? 'Tiếp tục' : 'Play')}</button>
         <button onClick={() => {set_playing(false);set_step(step+1);}}>{vi ? 'Mốc tiếp' : 'Next event'} →</button></>}

@@ -1,32 +1,48 @@
 'use client';
-// Landing: hero, three steps, and live on-chain numbers (total staked, challenge count, completers).
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import { CourseNotebook } from '@/components/course_notebook';
+import { MyStakes } from '@/components/my_stakes';
+import { RollingNumber } from '@/components/rolling_number';
+import { ChainMark } from '@/components/chain_mark';
 import { active_chain } from '@/lib/config';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { use_ui } from '@/hooks/use_ui';
 import { t } from '@/lib/i18n';
-import { format_usdc } from '@/lib/usdc';
 import { addresses, abis, public_client, to_challenge } from '@/lib/contracts';
 
 interface Stats {
   count: number;
   locked: bigint;
+  enrollments: number;
   completers: number;
   latest_hash?: string;
 }
 
 export default function HomePage() {
+  const { status } = useAccount();
   const { lang } = use_ui();
+
+  if (status === 'connected') return <MyStakes />;
+  if (status === 'connecting' || status === 'reconnecting') return <p role="status">{t(lang, 'loading')}</p>;
+  return <PublicHome />;
+}
+
+function PublicHome() {
+  const { lang } = use_ui();
+  const query_client = useQueryClient();
   const q = useQuery<Stats>({
     queryKey: ['stats'],
     queryFn: async () => {
-      const count = Number(
-        await public_client.readContract({ address: addresses.manager, abi: abis.manager, functionName: 'challenge_count' }),
-      );
+      const blockNumber = await public_client.getBlockNumber({ cacheTime: 0 });
+      const count = Number(await public_client.readContract({
+        address: addresses.manager, abi: abis.manager, functionName: 'challenge_count', blockNumber,
+      }));
       let latest_hash: string | undefined;
       let locked = 0n;
       let completers = 0;
+      let enrollments = 0;
       for (let id = 1; id <= count; id++) {
         const ch = to_challenge(
           await public_client.readContract({
@@ -34,18 +50,46 @@ export default function HomePage() {
             abi: abis.manager,
             functionName: 'get_challenge',
             args: [BigInt(id)],
+            blockNumber,
           }),
         );
         latest_hash = ch.metadata_hash;
         locked += ch.total_principal;
         completers += ch.completed_count;
+        enrollments += ch.participant_count;
       }
-      return { count, locked, completers, latest_hash };
+      return { count, locked, enrollments, completers, latest_hash };
     },
     // Always refetch on mount and every 15 s, so a page opened before a settle does not keep a stale 0.
     refetchOnMount: 'always',
     refetchInterval: 15_000,
   });
+
+  useEffect(() => {
+    let unwatch: (() => void) | undefined;
+    const sync = () => {
+      if (document.hidden) {
+        unwatch?.();
+        unwatch = undefined;
+      } else if (!unwatch) {
+        unwatch = public_client.watchContractEvent({
+          address: addresses.manager,
+          abi: abis.manager,
+          eventName: 'Joined',
+          pollingInterval: 4_000,
+          onLogs: () => void query_client.invalidateQueries({ queryKey: ['stats'] }),
+        });
+      }
+    };
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      document.removeEventListener('visibilitychange', sync);
+      unwatch?.();
+    };
+  }, [query_client]);
+
+  const stats = q.data;
 
   return (
     <div className="field-home">
@@ -60,28 +104,32 @@ export default function HomePage() {
         </div>
         <CourseNotebook id={q.data?.count} hash={q.data?.latest_hash} lang={lang} />
       </section>
-      <section className="ledger">
+      <section className="ledger paper-on-scroll">
         <div className="ledger-head">
-          <h2>{lang === 'vi' ? 'Sổ hoạt động' : 'Activity ledger'}</h2>
-          <span className="ledger-source">{lang === 'vi' ? 'Dữ liệu on-chain' : 'On-chain data'}</span>
+          <h2>{lang === 'vi' ? 'Hoạt động toàn hệ thống' : 'Public activity'}</h2>
+          <div className="ledger-signal">
+            <span className="ledger-source">{lang === 'vi' ? 'Dữ liệu on-chain' : 'On-chain data'}</span>
+            <ChainMark signal={stats ? `${stats.count}:${stats.locked}:${stats.enrollments}:${stats.completers}` : undefined} />
+          </div>
         </div>
         <dl className="stats-grid" aria-busy={q.isLoading}>
-          <Stat label={t(lang, 'stat_locked')} value={q.data ? format_usdc(q.data.locked) : '—'} unit="USDC" motif="coins" />
-          <Stat label={t(lang, 'stat_challenges')} value={q.data ? String(q.data.count) : '—'} motif="peaks" />
-          <Stat label={t(lang, 'stat_completed')} value={q.data ? String(q.data.completers) : '—'} motif="seal" />
+          <Stat label={t(lang, 'stat_locked')} value={stats?.locked} unit="USDC" motif="coins" />
+          <Stat label={t(lang, 'stat_enrollments')} value={stats && BigInt(stats.enrollments)} motif="joins" />
+          <Stat label={t(lang, 'stat_challenges')} value={stats && BigInt(stats.count)} motif="peaks" />
+          <Stat label={t(lang, 'stat_completed')} value={stats && BigInt(stats.completers)} motif="seal" />
         </dl>
         {q.isError && <p role="status">{t(lang, 'error_load')}</p>}
       </section>
-      <p className="demo-note">{t(lang, 'footer_demo')}</p>
+      <p className="demo-note">{t(lang, 'testnet_notice')}</p>
     </div>
   );
 }
 
-function Stat({ label, value, unit, motif }: { label: string; value: string; unit?: string; motif: string }) {
+function Stat({ label, value, unit, motif }: { label: string; value?: bigint; unit?: 'USDC'; motif: string }) {
   return (
     <div className={`stat stat-${motif}`}>
       <dt>{label}</dt>
-      <dd className="num">{value} {unit && <small>{unit}</small>}</dd>
+      <dd className="num"><RollingNumber value={value} usdc={unit === 'USDC'} /> {unit && <small>{unit}</small>}</dd>
       <span className="stat-mark" aria-hidden="true"><i /><i /><i /></span>
     </div>
   );

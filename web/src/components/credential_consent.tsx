@@ -9,14 +9,15 @@ import { use_ui } from '@/hooks/use_ui';
 import { t } from '@/lib/i18n';
 import { consent_message } from '@/lib/messages';
 import { oracle } from '@/lib/oracle';
+import { useActionNotice } from './action_notices';
 
 export function CredentialConsent() {
   const { lang } = use_ui();
   const { address } = useAccount();
   const { data: client } = useWalletClient();
   const qc = useQueryClient();
+  const notify = useActionNotice();
   const [busy, set_busy] = useState(false);
-  const [failed, set_failed] = useState(false);
 
   const link_q = useQuery({
     queryKey: ['link', address ?? null],
@@ -37,14 +38,14 @@ export function CredentialConsent() {
   async function save(next: boolean) {
     if (!client || !address) return;
     set_busy(true);
-    set_failed(false);
     try {
       const issued_at = Math.floor(Date.now() / 1000);
       const signature = await client.signMessage({ account: address, message: consent_message(address, next, issued_at) });
       await oracle.post_consent({ wallet: address, share: next, signature, issued_at });
       await qc.invalidateQueries({ queryKey: ['link', address, 'consent'] });
+      notify({ tone: 'success', title: t(lang, next ? 'notice_sharing_on' : 'notice_sharing_off') });
     } catch {
-      set_failed(true);
+      notify({ tone: 'error', title: t(lang, 'consent_failed') });
     } finally {
       set_busy(false);
     }
@@ -79,7 +80,6 @@ export function CredentialConsent() {
       <Link href="/credential/verify" className="text-sm underline">
         {t(lang, 'consent_verify_link')}
       </Link>
-      {failed ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{t(lang, 'consent_failed')}</p> : null}
       {consent_q.isError ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{t(lang, 'consent_load_failed')}</p> : null}
     </section>
   );

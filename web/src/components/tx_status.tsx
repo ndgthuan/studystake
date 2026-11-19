@@ -14,7 +14,10 @@ export function TxStatusLine({ state, lang }: { state: TxState; lang: Lang }) {
   const color = state.status === 'error' ? 'var(--accent)' : state.status === 'confirmed' ? 'var(--success)' : 'var(--muted)';
   return (
     <div className="text-sm" role="status" style={{ color }}>
-      <span>{label[state.status]}</span>
+      <span className="tx-phase" data-state={state.status} key={state.status}>
+        <span className="tx-mark" aria-hidden="true">{state.status === 'confirmed' ? '✓' : state.status === 'error' ? '!' : ''}</span>
+        {label[state.status]}
+      </span>
       {state.error ? <span> — {state.error}</span> : null}
       {state.explorer ? (
         <a href={state.explorer} target="_blank" rel="noreferrer" className="ml-2 underline">

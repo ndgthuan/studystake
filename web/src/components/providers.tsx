@@ -11,6 +11,7 @@ import { active_chain, PRIVY_APP_ID, PRIVY_ENABLED, RPC_URL } from '@/lib/config
 import type { Lang } from '@/lib/i18n';
 import { THEME_COLORS } from '@/lib/theme';
 import { UiCtx, type Theme, type UiContext } from '@/hooks/use_ui';
+import { ActionNotices } from './action_notices';
 
 function read_pref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -74,7 +75,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const ui: UiContext = { lang, set_lang, theme, set_theme, privy_enabled: PRIVY_ENABLED };
 
-  const inner = <UiCtx.Provider value={ui}>{children}</UiCtx.Provider>;
+  const inner = <UiCtx.Provider value={ui}><ActionNotices>{children}</ActionNotices></UiCtx.Provider>;
 
   if (!privy_wagmi_config) {
     return (

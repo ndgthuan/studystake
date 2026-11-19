@@ -12,6 +12,8 @@ export const DEPLOY_FROM_BLOCK = BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK ?? 
 
 /** The school StudyStake pilots with. Prefilled wherever a Moodle site is asked for. */
 export const DEFAULT_MOODLE_SITE = 'https://courses.ctda.hcmus.edu.vn';
+export const FUJI_FUNDING_URL = 'https://build.avax.network/console/primary-network/faucet';
+export const TEAM1_FUNDING_URL = 'https://team1vn.xyz/faucet.html';
 
 export const fuji = defineChain({
   id: 43113,

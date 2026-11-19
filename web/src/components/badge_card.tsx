@@ -59,8 +59,8 @@ export function BadgeCard({ wallet }: { wallet: `0x${string}` }) {
   }
   const b = q.data;
   return (
-    <section className="card flex flex-col gap-3 p-4 sm:flex-row">
-      {b.image ? <img src={b.image} alt={`${b.tier} badge`} width={160} height={160} className="h-40 w-40 rounded-lg" /> : null}
+    <section className="card paper-on-scroll flex flex-col gap-3 p-4 sm:flex-row">
+      {b.image ? <img src={b.image} alt={`${b.tier} badge`} width={160} height={160} className="badge-image h-40 w-40 rounded-lg" /> : null}
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold">{t(lang, 'badge_title')} · {b.tier}</h2>
         <div className="num text-sm">{t(lang, 'streak')}: {b.streak}</div>

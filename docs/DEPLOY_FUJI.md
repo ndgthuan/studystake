@@ -127,9 +127,12 @@ The command makes one purchase, checks the credential signer against the Manager
 
 ### HCMUS pilot handoff
 
+Use one StudyStake wallet throughout. For an embedded email wallet, copy the address from **My stakes → Avalanche Fuji wallet** and paste it into the [Team1 faucet](https://team1vn.xyz/faucet.html). An extension wallet can use the [Builder Console faucet](https://build.avax.network/console/primary-network/faucet). Fuji AVAX pays gas. A stake also needs the test USDC shown on the challenge.
+
 1. Connect the Creator wallet at `/admin`. Select **Moodle** under **Activity source**, keep the HCMUS site, and enter the course ID and at least one quiz or assignment **instance ID**. The `id` in a Moodle activity URL can be a course module ID. Use the activity instance ID from Moodle's course module data. Set the challenge end time to match the deadline you want to test.
 2. In the participant's own browser session, open `/link`, choose Moodle, and link the HCMUS account. Keep the Moodle token in the StudyStake form.
 3. Join the challenge on Fuji, then check the progress panel before and after submitting. Compare the quiz and assignment status with Moodle for the same account, and record the challenge ID, transaction hash and status. The API route is `/progress/<challengeId>/<wallet>`.
+4. Use a course and activity approved for the pilot. Finalized evidence is public and can include the wallet address, completion status and submission timestamps.
 
 ## P0 checklist
 - [ ] `contracts/deployments/43113.json` committed, 4 contracts verified on Snowtrace

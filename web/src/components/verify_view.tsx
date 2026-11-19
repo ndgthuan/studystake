@@ -11,6 +11,7 @@ import { DEPLOY_FROM_BLOCK, explorer_address, explorer_tx } from '@/lib/config';
 import { addresses, public_client } from '@/lib/contracts';
 import { parseAbiItem } from 'viem';
 import { short_address, ZERO_ROOT } from '@/lib/verify';
+import { ChainMark } from './chain_mark';
 
 export function VerifyView({ id_param }: { id_param: string }) {
   const { lang } = use_ui();
@@ -51,14 +52,17 @@ export function VerifyView({ id_param }: { id_param: string }) {
   const manager = explorer_address(addresses.manager);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="verify-record flex flex-col gap-4">
       <Link className="crumb" href={`/challenges/${id_param}`}>← {vi ? 'Hồ sơ học phần' : 'Course record'} #{id_param}</Link>
       <h1 className="text-2xl font-bold">
         {t(lang, 'verify_title')} · #{id_param}
       </h1>
 
-      <section className="card flex flex-col gap-3 p-4">
-        {verified && <span className="ink-stamp">{vi ? 'Khớp on-chain' : 'On-chain match'}</span>}
+      <section className="card verify-checks flex flex-col gap-3 p-4">
+        {verified && <div className="verification-seal">
+          <span className="ink-stamp">{vi ? 'Khớp on-chain' : 'On-chain match'}</span>
+          <ChainMark signal={chain.ch.evidence_hash} />
+        </div>}
         <Check
           label={t(lang, 'verify_hash')}
           ok={result.hash_ok}
@@ -78,7 +82,7 @@ export function VerifyView({ id_param }: { id_param: string }) {
         {result.error ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{result.error}</p> : null}
       </section>
 
-      <section className="card p-4">
+      <section className="card paper-on-scroll p-4">
         <h2 className="mb-2 font-semibold">{t(lang, 'participant')}</h2>
         <div className="overflow-x-auto">
           <table className="num w-full text-sm">
@@ -119,9 +123,9 @@ function Check({
   lang: 'vi' | 'en';
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="verify-check flex flex-col gap-1">
       <div className="flex items-center gap-2 font-semibold">
-        <span style={{ color: ok ? 'var(--success)' : 'var(--accent)' }}>{ok ? '✓' : '✗'}</span>
+        <span className="verify-mark" style={{ color: ok ? 'var(--success)' : 'var(--accent)' }}>{ok ? '✓' : '✗'}</span>
         <span>{label}</span>
         <span className="text-sm font-normal" style={{ color: ok ? 'var(--success)' : 'var(--accent)' }}>
           {ok ? t(lang, 'verify_ok') : t(lang, 'verify_fail')}

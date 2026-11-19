@@ -2,6 +2,7 @@
 // Connect / disconnect button. Privy login (Google, email or an external wallet) when Privy is enabled,
 // otherwise the injected wallets: Core when installed, plus any browser wallet.
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import { formatEther, parseEther, type Address } from 'viem';
@@ -13,8 +14,7 @@ import { short_address } from '@/lib/verify';
 import { t, type Lang } from '@/lib/i18n';
 import { use_ui } from '@/hooks/use_ui';
 
-const FUJI_FAUCET_URL = 'https://core.app/tools/testnet-faucet/';
-/** Same threshold as the oracle faucet: below this the wallet cannot pay for a join and a claim. */
+/** Same eligibility threshold as the oracle faucet. */
 const LOW_GAS_WEI = parseEther('0.02');
 
 export function WalletButton() {
@@ -35,7 +35,7 @@ function InjectedWalletButton() {
   const injected = connectors.find((c) => c.id === 'injected');
   const core_connector = connectors.find((c) => c.id === 'core');
   return (
-    <div className="flex items-center gap-2">
+    <div className="wallet-controls flex flex-wrap items-center justify-end gap-2">
       {core && core_connector ? (
         <button type="button" className="btn" disabled={isPending} onClick={() => connect({ connector: core_connector })}>
           {t(lang, 'connect_core')}
@@ -82,7 +82,7 @@ function Connected({ on_disconnect }: { on_disconnect?: () => void }) {
   const { switchChain, isPending: switching } = useSwitchChain();
   const wrong = chainId !== undefined && chainId !== active_chain.id;
   return (
-    <div className="flex items-center gap-2">
+    <div className="wallet-controls flex flex-wrap items-center justify-end gap-2">
       {wrong ? (
         <button type="button" className="btn" disabled={switching} onClick={() => switchChain({ chainId: active_chain.id })}>
           {t(lang, 'switch_network')}
@@ -132,9 +132,7 @@ function GasDrip({ address, lang }: { address: Address; lang: Lang }) {
     return (
       <p className="text-xs text-[var(--muted)]">
         {t(lang, 'gas_failed')}{' '}
-        <a className="underline" href={FUJI_FAUCET_URL} target="_blank" rel="noreferrer">
-          core.app
-        </a>
+        <Link className="underline" href="/me#fuji-wallet">{t(lang, 'fuji_wallet')}</Link>
       </p>
     );
   }

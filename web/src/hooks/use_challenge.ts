@@ -33,7 +33,7 @@ export function use_challenge(id: bigint | null) {
 }
 
 /** Query key prefix that every write invalidates, so the detail, list and me pages all refetch after a tx. */
-export const CHALLENGE_QUERY_PREFIXES = ['challenge', 'challenges', 'me', 'progress', 'roles', 'balance', 'stake', 'claim_receipt', 'preview', 'proof'] as const;
+export const CHALLENGE_QUERY_PREFIXES = ['challenge', 'challenges', 'stats', 'me', 'progress', 'roles', 'balance', 'stake', 'claim_receipt', 'preview', 'proof'] as const;
 
 /** Invalidates every query that a state-changing transaction can affect. */
 export function invalidate_challenge_queries(qc: QueryClient) {

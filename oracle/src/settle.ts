@@ -3,10 +3,12 @@ import { evaluate_participant, type ActivityOutcome, type ParticipantResult } fr
 import { metadata_key, parse_metadata, verify_metadata, type ChallengeMetadata } from './metadata.ts';
 import { build_tree, evidence_hash_of, evidence_key, root_of, type Evidence, type EvidenceEntry, type LeafInput } from './merkle.ts';
 import { LmsError, type LinkInfo, type LmsAdapter } from './lms/types.ts';
+import { link_matches_challenge } from './link.ts';
 import { canonical_json } from './canonical.ts';
 import { get_json, get_link, get_text, put_evidence, put_json, try_lock, unlock, type LinkRecord, type Store } from './store.ts';
 import type { ChainPort, ChallengeRow } from './chain.ts';
 import { STATUS, SCAN_CHUNK_BLOCKS } from './chain.ts';
+import { normalize_site } from './config.ts';
 
 export const SETTLE_LATE_THRESHOLD_SECONDS = 2 * 3600;
 export const DISPUTE_TIMEOUT_SECONDS = 7 * 24 * 3600;
@@ -130,7 +132,7 @@ async function evaluate_challenge(deps: SettleDeps, ch: ChallengeRow, meta: Chal
     if (stake === 0n) continue;
     const joined_at = await deps.port.joined_at(ch.id, account);
     const link = await get_link(deps.store.kv, account);
-    const linked = link !== null && link.lms === meta.lms;
+    const linked = link !== null && link_matches_challenge(link, meta);
     let outcomes: ActivityOutcome[] = [];
     let had_lms_error = false;
     if (linked) {
@@ -328,22 +330,33 @@ export async function run_settle_job(deps: SettleDeps): Promise<SettleReport> {
   }
 }
 
-/** Deletes token_enc for wallets with no Open challenge left. Runs at the end of each cron pass. */
+/** Clear tokens used by finished Moodle rounds, once the wallet has no unsettled challenge. */
 export async function clear_finished_tokens(deps: SettleDeps, count: number): Promise<void> {
   const open_accounts = new Set<string>();
-  const all_accounts = new Set<string>();
+  const finished_accounts = new Map<string, Map<string, number>>();
   for (let id = 1; id <= count; id++) {
     const accounts = await participants_of(deps.store.kv, id);
-    for (const a of accounts) all_accounts.add(a);
+    if (accounts.length === 0) continue;
     const ch = await deps.port.get_challenge(id);
     if (ch.status === STATUS.Open || ch.status === STATUS.Settled || ch.status === STATUS.Disputed) {
       for (const a of accounts) open_accounts.add(a);
+      continue;
+    }
+    if (!ch.finalized_at || (ch.status !== STATUS.Finalized && ch.status !== STATUS.Expired)) continue;
+    const meta = await load_metadata(deps, ch);
+    if (meta?.lms !== 'moodle') continue;
+    const site = normalize_site(meta.site);
+    for (const account of accounts) {
+      const sites = finished_accounts.get(account) ?? new Map<string, number>();
+      sites.set(site, Math.max(sites.get(site) ?? 0, ch.finalized_at));
+      finished_accounts.set(account, sites);
     }
   }
-  for (const account of all_accounts) {
+  for (const [account, sites] of finished_accounts) {
     if (open_accounts.has(account)) continue;
     const link = await get_link(deps.store.kv, account);
-    if (link !== null && link.token_enc !== null) {
+    if (link?.lms === 'moodle' && link.token_enc !== null &&
+        (sites.get(normalize_site(link.site)) ?? 0) > (link.linked_at ?? 0)) {
       await put_json(deps.store.kv, `link:${account}`, { ...link, token_enc: null });
     }
   }

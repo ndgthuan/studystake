@@ -13,6 +13,7 @@ import { BadgeCard } from './badge_card';
 import { LinkStatus } from './link_status';
 import { AccountGate } from './account_gate';
 import { phase_key } from '@/lib/format';
+import { FujiWalletSetup } from './fuji_wallet_setup';
 
 const joined_event = parseAbiItem(
   'event Joined(uint256 indexed id, address indexed account, uint128 amount, uint256 shares, uint64 joined_time)',
@@ -77,37 +78,38 @@ export function MyStakes() {
     return row.phase === 'Joining' || row.phase === 'Running' ? 'learning' : 'waiting';
   }
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t(lang, 'me_title')}</h1>
+    <div className="flex flex-col gap-6">
+      <div className="notebook-heading flex flex-wrap items-end justify-between gap-4">
+        <h1>{t(lang, 'personal_notebook')}</h1>
+        <Link href="/challenges" className="btn btn-ghost">{t(lang, 'start')} ↗</Link>
+      </div>
+      <div className="notebook-panels grid gap-4 md:grid-cols-2">
+        <LinkStatus />
+        {CHAIN_ID === 43113 && <FujiWalletSetup key={address} address={address} />}
+      </div>
+      <h2 className="text-xl font-semibold">{t(lang, 'me_title')}</h2>
       {q.isLoading ? <p className="text-[var(--muted)]">{t(lang, 'loading')}</p> : null}
       {q.data && q.data.length === 0 ? <p className="text-[var(--muted)]">{t(lang, 'me_empty')}</p> : null}
       {q.isError && <p role="status">{t(lang,'error_load')}</p>}
       {groups.map(group => {
         const rows = (q.data ?? []).filter(row => section(row) === group.key);
         if (!rows.length) return null;
-        return <section className="folio" key={group.key}><div className="sheet-head"><h2>{group.name}</h2><span>{rows.length}</span></div>
+        return <section className="folio paper-on-scroll" key={group.key}><div className="sheet-head"><h2>{group.name}</h2><span>{rows.length}</span></div>
             <ul className="flex flex-col gap-3">
               {rows.map((row) => (
-                <li key={row.id.toString()} className="card flex flex-wrap items-center justify-between gap-3 p-4">
+                <li key={row.id.toString()} className="card stake-row flex flex-wrap items-center justify-between gap-3 p-4">
                   <Link href={`/challenges/${row.id.toString()}`} className="font-semibold">
                     {vi ? 'Thử thách' : 'Challenge'} #{row.id.toString()}{group.key === 'claim' ? (vi ? ' · Nhận tiền hoàn lại →' : ' · Claim return →') : ''}
                   </Link>
                   <span className="num">{format_usdc(row.amount)} USDC</span>
                   <span className="badge-phase">{t(lang, phase_key(row.phase))}</span>
-                  {row.claimed ? <span style={{ color: 'var(--success)' }}>✓</span> : null}
+                  {row.claimed ? <span className="stake-claimed">✓</span> : null}
                 </li>
               ))}
             </ul>
         </section>;
       })}
-      <LinkStatus />
       <BadgeCard wallet={address} />
-      {CHAIN_ID === 43113 ? (
-        <section className="card flex flex-col gap-1 p-4">
-          <h2 className="font-semibold">{t(lang, 'aave_yield_title')}</h2>
-          <p className="text-sm text-[var(--muted)]">{t(lang, 'aave_yield_status')}</p>
-        </section>
-      ) : null}
     </div>
   );
 }

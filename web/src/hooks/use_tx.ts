@@ -5,6 +5,8 @@ import { useCallback, useState } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { explorer_tx } from '@/lib/config';
 import { explain_error, type Lang } from '@/lib/errors';
+import { t } from '@/lib/i18n';
+import { useActionNotice } from '@/components/action_notices';
 
 export type TxStatus = 'idle' | 'signing' | 'pending' | 'confirmed' | 'error';
 
@@ -32,15 +34,22 @@ export function use_tx(lang: Lang, on_confirmed?: () => void | Promise<void>) {
   const { address } = useAccount();
   const { data: wallet } = useWalletClient();
   const publicClient = usePublicClient();
+  const notify = useActionNotice();
 
   const reset = useCallback(() => set_state(INITIAL), []);
 
   const run = useCallback(
     async (req: TxRequest): Promise<`0x${string}` | null> => {
-      if (!wallet || !publicClient || !address) {
-        set_state({ status: 'error', hash: null, error: explain_error(new Error('no wallet'), lang), explorer: null });
+      function fail(error: string, hash: `0x${string}` | null = null) {
+        set_state({ status: 'error', hash, error, explorer: hash ? explorer_tx(hash) : null });
+        notify({ tone: 'error', title: t(lang, 'tx_error'), detail: error });
         return null;
       }
+
+      if (!wallet || !publicClient || !address) {
+        return fail(explain_error(new Error('no wallet'), lang));
+      }
+      let hash: `0x${string}`;
       try {
         set_state({ status: 'signing', hash: null, error: null, explorer: null });
         await publicClient.simulateContract({
@@ -51,7 +60,7 @@ export function use_tx(lang: Lang, on_confirmed?: () => void | Promise<void>) {
           args: req.args as readonly unknown[],
           value: req.value,
         } as Parameters<typeof publicClient.simulateContract>[0]);
-        const hash = await wallet.writeContract({
+        hash = await wallet.writeContract({
           address: req.address,
           abi: req.abi as readonly unknown[],
           functionName: req.functionName,
@@ -64,18 +73,21 @@ export function use_tx(lang: Lang, on_confirmed?: () => void | Promise<void>) {
         set_state({ status: 'pending', hash, error: null, explorer: explorer_tx(hash) });
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
         if (receipt.status !== 'success') {
-          set_state({ status: 'error', hash, error: explain_error(new Error('reverted'), lang), explorer: explorer_tx(hash) });
-          return null;
+          return fail(explain_error(new Error('reverted'), lang), hash);
         }
-        set_state({ status: 'confirmed', hash, error: null, explorer: explorer_tx(hash) });
-        if (on_confirmed) await on_confirmed();
-        return hash;
       } catch (err) {
-        set_state({ status: 'error', hash: null, error: explain_error(err, lang), explorer: null });
-        return null;
+        return fail(explain_error(err, lang));
       }
+      set_state({ status: 'confirmed', hash, error: null, explorer: explorer_tx(hash) });
+      if (req.functionName !== 'approve') notify({ tone: 'success', title: t(lang, 'tx_confirmed') });
+      try {
+        await on_confirmed?.();
+      } catch {
+        // A query refresh failure does not change the confirmed receipt.
+      }
+      return hash;
     },
-    [wallet, publicClient, address, lang, on_confirmed],
+    [wallet, publicClient, address, lang, on_confirmed, notify],
   );
 
   return { state, run, reset };

@@ -1,61 +1,77 @@
 'use client';
-// Progress: per-activity status from the oracle (GET /progress/:id/:wallet). Demo challenges get a submit button.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWalletClient } from 'wagmi';
 import { use_ui } from '@/hooks/use_ui';
-import { oracle, type ProgressBody } from '@/lib/oracle';
+import { oracle, type MetadataDoc } from '@/lib/oracle';
 import { t } from '@/lib/i18n';
 import { format_time } from '@/lib/format';
 import { demo_submit_message } from '@/lib/messages';
-import { ORACLE_URL } from '@/lib/config';
+import { SubmissionReplay } from './submission_replay';
 import { useState } from 'react';
+import type { Evidence } from '@/lib/verify';
 
 interface Props {
   id: bigint;
   wallet: `0x${string}` | null;
-  /** True only while demo submissions are still accepted (before end_time). */
   accepting_demo: boolean;
+  meta?: MetadataDoc;
+  metadata_failed: boolean;
+  enrolled: boolean;
+  evidence?: Evidence;
+  final: boolean;
+  finalized: boolean;
 }
 
-export function ProgressPanel({ id, wallet, accepting_demo }: Props) {
-  const { lang } = use_ui();
-  const q = useQuery<ProgressBody>({
-    queryKey: ['progress', id.toString(), wallet ?? null],
-    enabled: !!wallet,
-    queryFn: () => oracle.get_progress(Number(id), wallet!),
-    refetchInterval: 30_000,
+export function ProgressPanel({id, wallet, accepting_demo, meta, metadata_failed, enrolled, evidence, final, finalized}: Props) {
+  const {lang} = use_ui();
+  const vi = lang === 'vi';
+  const q = useQuery({
+    queryKey: ['progress', id.toString(), wallet], enabled: !!wallet && enrolled && !(final && evidence),
+    queryFn: () => oracle.get_progress(Number(id), wallet!), refetchInterval: 30_000,
   });
-
-  if (!wallet) return null;
-  if (q.isLoading) return <p className="text-sm text-[var(--muted)]">{t(lang, 'loading')}</p>;
-  if (q.error || !q.data) return <p className="text-sm text-[var(--muted)]">{t(lang, 'error_load')}</p>;
-
+  const entry = wallet && final ? evidence?.entries.find(e => e.account.toLowerCase() === wallet.toLowerCase()) : undefined;
+  const archived = final && !!evidence;
+  const current = archived ? entry?.activities : q.data?.activities;
+  const done = current?.filter(a => a.submitted).length;
+  const count = meta?.activities.length;
+  const replay_entry = wallet ? entry : evidence?.entries.find(e => e.completed) ?? evidence?.entries[0];
+  const source = meta?.lms === 'moodle' ? 'Moodle' : 'Demo LMS';
+  const course_url = meta?.lms === 'moodle' && /^https:\/\//i.test(meta.site)
+    ? `${meta.site.replace(/\/+$/,'')}/course/view.php?id=${meta.course_id}` : null;
   return (
-    <section className="card flex flex-col gap-3 p-4">
-      <h2 className="font-semibold">{t(lang, 'progress')}</h2>
-      <ul className="flex flex-col gap-2">
-        {q.data.activities.map((a) => (
-          <li key={a.instance_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span>
-              {a.kind === 'quiz' ? 'Quiz' : 'Assign'} #{a.instance_id}
-            </span>
-            <span className="num">
-              {a.submitted ? (
-                <span style={{ color: 'var(--success)' }}>✓ {a.time_finished ? format_time(a.time_finished, lang) : ''}</span>
-              ) : (
-                <span className="text-[var(--muted)]">✗ {a.status}</span>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {accepting_demo ? (
-        <DemoSubmit id={id} wallet={wallet} activities={q.data.activities.map((a) => a.instance_id)} />
-      ) : null}
+    <section className="folio tasks-sheet">
+      <div className="sheet-head"><h2>{vi ? 'Bài cần nộp' : 'Submission checklist'}</h2>
+        {count !== undefined && <span className="sheet-index">{String(count).padStart(2,'0')} {vi ? 'bài' : 'tasks'}</span>}</div>
+      {!meta && <p role="status">{t(lang,metadata_failed ? 'error_load' : 'loading')}</p>}
+      {meta && <>
+        {wallet && done !== undefined && <div className="personal-progress">
+          <span>{vi ? 'Bài đã ghi nhận' : 'Recorded submissions'} <b>{done}/{count}</b></span>
+          <div role="progressbar" aria-label={t(lang,'progress')} aria-valuemin={0} aria-valuemax={count} aria-valuenow={done}>
+            <i style={{width:`${count ? 100 * done/count : 0}%`}} /></div></div>}
+        <ol className="activity-rows">{meta.activities.map((task,i) => {
+          const state = archived ? entry?.activities.find(a => a.instance_id === task.instance_id) :
+            q.data?.activities.find(a => a.instance_id === task.instance_id && a.kind === task.kind);
+          const recorded = evidence?.entries.filter(e => e.activities.some(a => a.instance_id === task.instance_id && a.submitted)).length;
+          const status = state?.submitted ? (vi ? `${source} đã ghi nhận` : `Recorded by ${source}`) :
+            state && 'status' in state && state.status !== 'missing' ? String(state.status) :
+            state ? (vi ? 'Chưa ghi nhận' : 'No submission') : undefined;
+          return <li key={`${task.kind}-${task.instance_id}`}>
+            <span className={`task-number ${state?.submitted ? 'recorded' : ''}`} aria-hidden="true">{state?.submitted ? '✓' : String(i+1).padStart(2,'0')}</span>
+            <div><h3>{task.name}</h3><small>{task.kind === 'quiz' ? (vi ? 'Trắc nghiệm' : 'Quiz') : (vi ? 'Bài tập' : 'Assignment')} · {format_time(task.due,lang)}</small></div>
+            {status ? <span className="activity-state">{status}</span> : !wallet && recorded !== undefined && <span className="activity-state">{recorded}/{evidence?.entries.length} {vi ? 'đã nộp' : 'submitted'}</span>}
+          </li>;
+        })}</ol>
+        {finalized && replay_entry && <SubmissionReplay key={replay_entry.account} entry={replay_entry} tasks={meta.activities} lang={lang} />}
+        {meta.min_grade !== null && <p>{vi ? 'Điểm tối thiểu' : 'Minimum grade'} · {meta.min_grade}</p>}
+        {wallet && !archived && q.isError && <p role="status">{t(lang,'error_load')}</p>}
+        {wallet && archived && !entry && <small>{vi ? 'Ví này không có trong danh sách kết quả.' : 'This wallet has no entry in the results.'}</small>}
+        {course_url && accepting_demo && <a className="btn task-cta" href={course_url} target="_blank" rel="noreferrer">{vi ? 'Mở Moodle' : 'Open Moodle'} ↗</a>}
+        {meta.lms === 'demo' && accepting_demo && wallet && enrolled &&
+          <DemoSubmit id={id} wallet={wallet} activities={meta.activities.map(a => a.instance_id)} />}
+      </>}
     </section>
   );
 }
-
 /** Demo submit: the wallet signs a message, then the oracle records the submission. DEMO only. */
 function DemoSubmit({ id, wallet, activities }: { id: bigint; wallet: `0x${string}`; activities: number[] }) {
   const { lang } = use_ui();
@@ -86,7 +102,7 @@ function DemoSubmit({ id, wallet, activities }: { id: bigint; wallet: `0x${strin
   return (
     <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
       <div className="text-xs text-[var(--muted)]">
-        {t(lang, 'demo_submit')} · DEMO · {ORACLE_URL}
+        {t(lang, 'demo_submit')} · DEMO
       </div>
       <div className="flex flex-wrap gap-2">
         {activities.map((instance_id) => (

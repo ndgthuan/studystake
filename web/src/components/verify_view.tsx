@@ -5,35 +5,60 @@ import { useQuery } from '@tanstack/react-query';
 import { use_ui } from '@/hooks/use_ui';
 import { use_challenge } from '@/hooks/use_challenge';
 import { t } from '@/lib/i18n';
-import { oracle } from '@/lib/oracle';
-import { verify_evidence, short_address, type Evidence } from '@/lib/verify';
+import Link from 'next/link';
+import { use_course_evidence } from '@/hooks/use_course_record';
+import { DEPLOY_FROM_BLOCK, explorer_address, explorer_tx } from '@/lib/config';
+import { addresses, public_client } from '@/lib/contracts';
+import { parseAbiItem } from 'viem';
+import { short_address, ZERO_ROOT } from '@/lib/verify';
 
 export function VerifyView({ id_param }: { id_param: string }) {
   const { lang } = use_ui();
   const id = /^\d+$/.test(id_param) ? BigInt(id_param) : null;
-  const { data: chain } = use_challenge(id);
-
-  const ev_q = useQuery({
-    queryKey: ['evidence', id_param],
-    enabled: id !== null,
-    queryFn: () => oracle.get_evidence(Number(id_param)) as Promise<Record<string, unknown>>,
-    retry: false,
+  const chain_q = use_challenge(id);
+  const chain = chain_q.data;
+  const ev_q = use_course_evidence(id, chain?.ch);
+  const vi = lang === 'vi';
+  const tx_q = useQuery({
+    queryKey: ['finalize_tx', id?.toString(), chain?.ch.finalized_at.toString()],
+    enabled: !!id && chain?.phase === 'Finalized' && !!explorer_address(addresses.manager),
+    staleTime: Infinity, retry: false,
+    queryFn: async () => {
+      // Fuji nodes cap log ranges. Locate the finalization timestamp, then query a small block window.
+      const time = chain!.ch.finalized_at;
+      let lo = DEPLOY_FROM_BLOCK;
+      let hi = await public_client.getBlockNumber();
+      const latest = hi;
+      while (hi - lo > 1000n) {
+        const mid = (lo + hi) / 2n;
+        const block = await public_client.getBlock({ blockNumber: mid });
+        if (block.timestamp < time) lo = mid + 1n;
+        else hi = mid;
+      }
+      const logs = await public_client.getLogs({
+        address: addresses.manager, args: { id: id! },
+        event: parseAbiItem('event Finalized(uint256 indexed id, uint256 final_assets, uint256 reward_pot, bool loss)'),
+        fromBlock: lo, toBlock: hi + 16n < latest ? hi + 16n : latest,
+      });
+      return logs[0]?.transactionHash ?? null;
+    },
   });
-
-  if (id === null) return <p className="text-[var(--muted)]">Invalid challenge id</p>;
-  if (ev_q.isLoading || !chain) return <p className="text-[var(--muted)]">{t(lang, 'loading')}</p>;
-  if (ev_q.error) return <p className="text-[var(--muted)]">{t(lang, 'error_load')}</p>;
-
-  const evidence = ev_q.data as unknown as Evidence;
-  const result = verify_evidence(evidence, chain.ch.evidence_hash, chain.ch.root);
+  if (id === null || chain_q.isError || ev_q.isError) return <p role="status">{t(lang,'error_load')}</p>;
+  if (chain?.ch.evidence_hash === ZERO_ROOT) return <p>{vi ? 'Chưa có bằng chứng công bố.' : 'Evidence has not been published yet.'}</p>;
+  if (!chain || !ev_q.data) return <p role="status">{t(lang,'loading')}</p>;
+  const { evidence, checks:result, verified } = ev_q.data;
+  const tx = tx_q.data && explorer_tx(tx_q.data);
+  const manager = explorer_address(addresses.manager);
 
   return (
     <div className="flex flex-col gap-4">
+      <Link className="crumb" href={`/challenges/${id_param}`}>← {vi ? 'Hồ sơ học phần' : 'Course record'} #{id_param}</Link>
       <h1 className="text-2xl font-bold">
         {t(lang, 'verify_title')} · #{id_param}
       </h1>
 
       <section className="card flex flex-col gap-3 p-4">
+        {verified && <span className="ink-stamp">{vi ? 'Khớp on-chain' : 'On-chain match'}</span>}
         <Check
           label={t(lang, 'verify_hash')}
           ok={result.hash_ok}
@@ -48,6 +73,8 @@ export function VerifyView({ id_param }: { id_param: string }) {
           computed={result.computed_root ?? '—'}
           lang={lang}
         />
+        {tx && <a className="record-link" href={tx} target="_blank" rel="noreferrer">{vi ? 'Giao dịch chốt kết quả' : 'Finalization transaction'} ↗</a>}
+        {manager && <a className="record-link" href={manager} target="_blank" rel="noreferrer">{vi ? 'Hợp đồng thử thách' : 'Challenge contract'} ↗</a>}
         {result.error ? <p className="text-sm" style={{ color: 'var(--accent)' }}>{result.error}</p> : null}
       </section>
 

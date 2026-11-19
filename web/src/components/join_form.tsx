@@ -12,6 +12,7 @@ import { addresses, abis, public_client } from '@/lib/contracts';
 import { format_usdc, parse_usdc } from '@/lib/usdc';
 import { CIRCLE_FAUCET_URL, is_tusdc, permit_domain } from '@/lib/tokens';
 import { t } from '@/lib/i18n';
+import { PayoutLines } from './payout_lines';
 import { TxStatusLine } from './tx_status';
 
 const PERMIT_TYPES = {
@@ -29,9 +30,11 @@ interface Props {
   token: Address;
   min_stake: bigint;
   max_stake: bigint;
+  total_principal: bigint;
+  estimated_pot: bigint | null;
 }
 
-export function JoinForm({ id, token, min_stake, max_stake }: Props) {
+export function JoinForm({ id, token, min_stake, max_stake, total_principal, estimated_pot }: Props) {
   const { lang } = use_ui();
   const { address } = useAccount();
   const { data: wallet } = useWalletClient();
@@ -111,6 +114,10 @@ export function JoinForm({ id, token, min_stake, max_stake }: Props) {
       <div className="num text-sm text-[var(--muted)]">
         {t(lang, 'balance')}: {format_usdc(balance)} USDC
       </div>
+      {amount !== null && amount > 0n && in_range && <>
+        <PayoutLines lang={lang} principal={amount} estimate={estimated_pot === null ? null : estimated_pot * amount / (total_principal + amount)} />
+        <small>{lang === 'vi' ? 'Ước tính theo quỹ hiện tại nếu tất cả người tham gia hoàn thành. Vốn hoàn lại phụ thuộc giá trị vault khi chốt.' : 'Estimate uses the current pool and assumes every participant finishes. Principal depends on the vault value at settlement.'}</small>
+      </>}
       {amount !== null && !in_range ? (
         <p className="text-sm" style={{ color: 'var(--accent)' }}>
           {format_usdc(min_stake)} – {format_usdc(max_stake)} USDC

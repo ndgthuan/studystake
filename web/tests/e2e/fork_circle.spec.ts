@@ -127,6 +127,7 @@ for (const source of ['ethereum', 'avalanche'] as const) {
     await expect(switch_network).toBeVisible();
     await switch_network.click();
     await expect(switch_network).toHaveCount(0);
+    await page.locator('header summary').click();
     await expect(page.getByRole('button', { name: /Ngắt kết nối|Disconnect/ })).toBeVisible();
   });
 }

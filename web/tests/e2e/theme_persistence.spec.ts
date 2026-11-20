@@ -331,7 +331,34 @@ test.describe('with Privy enabled', () => {
     await expect(theme_button(page)).toHaveText('☀');
     await expect.poll(() => page_background(page)).not.toBe(PRIVY_LIGHT_BACKGROUND);
     await expect(address).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Disconnect' })).toBeVisible();
+    await address.click();
+    await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
     await still_mounted();
+  });
+
+  test('a signed-in student keeps the home page and can see their Google account', async ({ page }) => {
+    const google = { name: 'Minh Student', email: 'minh@example.test' };
+    await stub_privy_server(page, PRIVY_APP_ID, true, google);
+    await install_stub_wallet(page);
+    await save_prefs(page, { ss_lang: 'en' });
+    await page.goto('/');
+    await login_button(page).click();
+    await page.getByText('Continue with a wallet').click();
+    await page.getByRole('button', { name: 'Browser Extension' }).click();
+
+    const account = page.locator('header summary').filter({ hasText: google.name });
+    await expect(account).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Your course notebook.' })).toBeVisible();
+    await expect(page.getByText(google.email)).toBeHidden();
+    await account.click();
+    await expect(page.getByText(google.email)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
+    await account.press('Escape');
+    await expect(page.getByText(google.email)).toBeHidden();
+
+    await page.getByRole('link', { name: 'My stakes', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your course notebook', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Home', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Your course notebook.' })).toBeVisible();
   });
 });

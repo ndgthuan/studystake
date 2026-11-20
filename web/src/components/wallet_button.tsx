@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, type User } from '@privy-io/react-auth';
 import { formatEther, parseEther, type Address } from 'viem';
 import { active_chain, CHAIN_ID, explorer_tx } from '@/lib/config';
 import { has_core_wallet } from '@/lib/injected_connector';
@@ -57,7 +57,7 @@ function InjectedWalletButton() {
 
 function PrivyWalletButton() {
   const { lang } = use_ui();
-  const { ready, authenticated, login, logout } = usePrivy();
+  const { ready, authenticated, login, logout, user } = usePrivy();
   const { address } = useAccount();
   if (!ready) return <button type="button" className="btn" disabled>{t(lang, 'login')}</button>;
   if (!authenticated) {
@@ -69,18 +69,26 @@ function PrivyWalletButton() {
   }
   return (
     <div className="flex flex-col items-end gap-1">
-      <Connected on_disconnect={() => void logout()} />
+      <Connected profile={user} on_logout={() => void logout()} />
       {address ? <GasDrip key={address} address={address} lang={lang} /> : null}
     </div>
   );
 }
 
-function Connected({ on_disconnect }: { on_disconnect?: () => void }) {
+function Connected({ profile, on_logout }: {
+  profile?: Pick<User, 'google' | 'email'> | null;
+  on_logout?: () => void;
+}) {
   const { lang } = use_ui();
   const { address, chainId } = useAccount();
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: switching } = useSwitchChain();
   const wrong = chainId !== undefined && chainId !== active_chain.id;
+  const google = profile?.google;
+  const email = profile?.email?.address;
+  const account_type = google ? 'account_google' : email ? 'account_email' : address ? 'account_wallet' : 'account';
+  const display_name = google?.name?.trim() || (!google && !email && address ? short_address(address) : '');
+
   return (
     <div className="wallet-controls flex flex-wrap items-center justify-end gap-2">
       {wrong ? (
@@ -88,10 +96,35 @@ function Connected({ on_disconnect }: { on_disconnect?: () => void }) {
           {t(lang, 'switch_network')}
         </button>
       ) : null}
-      <span className="num text-sm text-[var(--muted)]">{address ? short_address(address) : ''}</span>
-      <button type="button" className="btn btn-ghost" onClick={() => (on_disconnect ? on_disconnect() : disconnect())}>
-        {t(lang, 'disconnect')}
-      </button>
+      <details
+        className="wallet-account"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && event.currentTarget.open) {
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector('summary')?.focus();
+          }
+        }}
+      >
+        <summary className="btn btn-ghost account-trigger">
+          <span className="account-label">
+            <strong>{display_name || t(lang, account_type)}</strong>
+            {display_name && <small>{t(lang, account_type)}</small>}
+          </span>
+        </summary>
+        <div className="account-panel">
+          <dl>
+            {google && <div><dt>{t(lang, 'account_google')}</dt><dd>{google.email}</dd></div>}
+            {email && email !== google?.email && <div><dt>{t(lang, 'account_email')}</dt><dd>{email}</dd></div>}
+            {address && <div><dt>{t(lang, 'account_wallet')}</dt><dd className="num">{address}</dd></div>}
+          </dl>
+          <button type="button" className="btn btn-ghost" onClick={() => (on_logout ? on_logout() : disconnect())}>
+            {t(lang, on_logout ? 'logout' : 'disconnect')}
+          </button>
+        </div>
+      </details>
     </div>
   );
 }

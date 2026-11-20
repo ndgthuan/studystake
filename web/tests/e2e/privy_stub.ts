@@ -8,7 +8,9 @@ export const STUB_WALLET_ADDRESS = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
 const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
 
-function fake_session(app_id: string) {
+type GoogleProfile = { name: string; email: string };
+
+function fake_session(app_id: string, google?: GoogleProfile) {
   const now = Math.floor(Date.now() / 1000);
   const claims = { sid: 'stub', iss: 'privy.io', iat: now, aud: app_id, sub: 'did:privy:stub', exp: now + 3600 };
   const token = `${encode({ alg: 'ES256', typ: 'JWT' })}.${encode(claims)}.c3R1Yg`;
@@ -30,6 +32,10 @@ function fake_session(app_id: string) {
           first_verified_at: now,
           latest_verified_at: now,
         },
+        ...(google ? [{
+          type: 'google_oauth', subject: 'stub-google', ...google,
+          verified_at: now, first_verified_at: now, latest_verified_at: now,
+        }] : []),
       ],
     },
     token,
@@ -42,7 +48,7 @@ function fake_session(app_id: string) {
 }
 
 /** Answers every Privy and WalletConnect request in the browser. Anything not listed here gets a 404. */
-export async function stub_privy_server(page: Page, app_id: string, google_enabled = true): Promise<void> {
+export async function stub_privy_server(page: Page, app_id: string, google_enabled = true, google?: GoogleProfile): Promise<void> {
   await page.route(/privy\.io|walletconnect|reown/, (route) => {
     const url = route.request().url();
     if (url.includes(`/api/v1/apps/${app_id}`)) {
@@ -69,7 +75,7 @@ export async function stub_privy_server(page: Page, app_id: string, google_enabl
       const expires_at = new Date(Date.now() + 600_000).toISOString();
       return route.fulfill({ json: { nonce: 'stub-nonce', address: STUB_WALLET_ADDRESS, expires_at } });
     }
-    if (url.includes('/api/v1/siwe/authenticate')) return route.fulfill({ json: fake_session(app_id) });
+    if (url.includes('/api/v1/siwe/authenticate')) return route.fulfill({ json: fake_session(app_id, google) });
     return route.fulfill({ status: 404, json: { error: 'stubbed' } });
   });
 }

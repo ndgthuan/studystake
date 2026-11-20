@@ -1,9 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { CourseNotebook } from '@/components/course_notebook';
-import { MyStakes } from '@/components/my_stakes';
 import { RollingNumber } from '@/components/rolling_number';
 import { ChainMark } from '@/components/chain_mark';
 import { active_chain, HIDDEN_CHALLENGES } from '@/lib/config';
@@ -24,15 +22,6 @@ interface Stats {
 }
 
 export default function HomePage() {
-  const { status } = useAccount();
-  const { lang } = use_ui();
-
-  if (status === 'connected') return <MyStakes />;
-  if (status === 'connecting' || status === 'reconnecting') return <p role="status">{t(lang, 'loading')}</p>;
-  return <PublicHome />;
-}
-
-function PublicHome() {
   const { lang } = use_ui();
   const query_client = useQueryClient();
   const q = useQuery<Stats>({

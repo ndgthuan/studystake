@@ -38,7 +38,7 @@ html, body { min-height: 100%; background: var(--bg); color: var(--fg); }
 body { -webkit-font-smoothing: antialiased; }
 ::selection { color: #203629; background: #edbd85; }
 .num { font-variant-numeric: tabular-nums; }
-:where(a, button, input, select, textarea):focus-visible {
+:where(a, button, input, select, textarea, summary):focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
@@ -54,6 +54,19 @@ body { -webkit-font-smoothing: antialiased; }
 .site-tools { margin-left: auto; gap: 5px; min-width:0; max-width:100%; }
 .wallet-controls { min-width:0; }
 .wallet-controls .btn { white-space:nowrap; }
+.wallet-account { position: relative; }
+.account-trigger { display: flex; align-items: center; gap: 9px; list-style: none; }
+.account-trigger::-webkit-details-marker { display: none; }
+.account-trigger::after { content: ''; width: 7px; height: 7px; border-right: 1px solid; border-bottom: 1px solid; rotate: 45deg; margin-top: -3px; flex: none; }
+.wallet-account[open] .account-trigger::after { rotate: 225deg; margin-top: 3px; }
+.account-label { display: grid; text-align: left; line-height: 1.25; max-width: min(10rem, 27vw); }
+.account-label strong, .account-label small { overflow: hidden; text-overflow: ellipsis; }
+.account-label small { color: var(--muted); font-size: .7rem; font-weight: 400; }
+.account-panel { position: absolute; z-index: 2; inset-inline-end: 0; margin-top: 6px; width: min(20rem, calc(100vw - 32px)); background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 3px 0 var(--shadow); padding: 14px; }
+.account-panel dl { display: grid; gap: 10px; }
+.account-panel dt { color: var(--muted); font-size: .75rem; }
+.account-panel dd { font-size: .88rem; overflow-wrap: anywhere; }
+.account-panel dl:not(:empty) + .btn { margin-top: 12px; }
 .app-main { min-height: 65vh; padding-block: clamp(32px, 5vw, 74px); }
 .app-main h1:not(.hero-copy h1) { font: 500 clamp(2.4rem, 5vw, 4.5rem)/1.2 var(--serif); letter-spacing: -.045em; }
 .site-footer { display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding: 21px 0 32px; font: .78rem var(--mono); color: var(--muted); }

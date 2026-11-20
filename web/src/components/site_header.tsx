@@ -18,6 +18,7 @@ export function SiteHeader() {
           <span className="brand-mark" aria-hidden="true">▰</span>StudyStake
         </Link>
         <nav className="site-nav">
+          <Link href="/" aria-current={path === '/' ? 'page' : undefined}>{t(lang, 'nav_home')}</Link>
           <Link href="/challenges" aria-current={path === '/challenges' || path.startsWith('/challenges/') ? 'page' : undefined}>{t(lang, 'nav_challenges')}</Link>
           <Link href="/me" aria-current={path === '/me' || path.startsWith('/me/') ? 'page' : undefined}>{t(lang, 'nav_me')}</Link>
           <Link href="/link" aria-current={path === '/link' || path.startsWith('/link/') ? 'page' : undefined}>{t(lang, 'nav_link')}</Link>

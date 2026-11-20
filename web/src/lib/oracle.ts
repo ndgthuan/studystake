@@ -86,6 +86,13 @@ export interface QuizPreview {
   due: number | null;
 }
 
+export interface MoodleCourses {
+  linked: boolean;
+  site?: string;
+  cleared?: boolean;
+  course_ids?: number[];
+}
+
 export interface X402Stats {
   pay_to: `0x${string}`;
   asset: `0x${string}`;
@@ -107,6 +114,11 @@ export const oracle = {
   preview_quiz: (wallet: string, url: string, token: string) =>
     request<QuizPreview>('/moodle/quiz-preview', {
       method: 'POST', body: JSON.stringify({ wallet, url }),
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  get_moodle_courses: (wallet: string, token: string) =>
+    request<MoodleCourses>('/moodle/courses', {
+      method: 'POST', body: JSON.stringify({ wallet }), cache: 'no-store',
       headers: { authorization: `Bearer ${token}` },
     }),
   check_join: (id: number, wallet: string, token: string) =>

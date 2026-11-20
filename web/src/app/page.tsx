@@ -10,7 +10,8 @@ import { active_chain } from '@/lib/config';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { use_ui } from '@/hooks/use_ui';
 import { t } from '@/lib/i18n';
-import { addresses, abis, public_client, to_challenge } from '@/lib/contracts';
+import { addresses, abis, public_client, STATUS_NAMES, to_challenge } from '@/lib/contracts';
+import { ZERO_ROOT } from '@/lib/verify';
 
 interface Stats {
   count: number;
@@ -18,6 +19,7 @@ interface Stats {
   enrollments: number;
   completers: number;
   latest_hash?: string;
+  latest_result?: number;
 }
 
 export default function HomePage() {
@@ -40,6 +42,8 @@ function PublicHome() {
         address: addresses.manager, abi: abis.manager, functionName: 'challenge_count', blockNumber,
       }));
       let latest_hash: string | undefined;
+      let latest_result: number | undefined;
+      let last_finalized = 0n;
       let locked = 0n;
       let completers = 0;
       let enrollments = 0;
@@ -54,11 +58,15 @@ function PublicHome() {
           }),
         );
         latest_hash = ch.metadata_hash;
+        if (STATUS_NAMES[ch.status] === 'Finalized' && ch.evidence_hash !== ZERO_ROOT && ch.finalized_at >= last_finalized) {
+          latest_result = id;
+          last_finalized = ch.finalized_at;
+        }
         locked += ch.total_principal;
         completers += ch.completed_count;
         enrollments += ch.participant_count;
       }
-      return { count, locked, enrollments, completers, latest_hash };
+      return { count, locked, enrollments, completers, latest_hash, latest_result };
     },
     // Always refetch on mount and every 15 s, so a page opened before a settle does not keep a stale 0.
     refetchOnMount: 'always',
@@ -101,6 +109,11 @@ function PublicHome() {
           <Link href="/challenges" className="btn hero-cta">
             {t(lang, 'start')} <span aria-hidden="true">↗</span>
           </Link>
+          {stats?.latest_result && <div className="mt-3">
+            <Link className="record-link" href={`/verify/${stats.latest_result}`}>
+              {lang === 'vi' ? 'Kiểm tra kết quả đã chốt' : 'Verify a finalized result'} · #{stats.latest_result} ↗
+            </Link>
+          </div>}
         </div>
         <CourseNotebook id={q.data?.count} hash={q.data?.latest_hash} lang={lang} />
       </section>

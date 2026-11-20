@@ -75,7 +75,9 @@ test('Circle USDC: a fork user joins with one permit and the treasury sponsors f
   await expect
     .poll(() => client.readContract({ address: deployments.manager, abi: manager_abi, functionName: 'stake_of', args: [id, user] }), { timeout: 60_000 })
     .toBe(STAKE);
-  await expect(page.getByRole('status').filter({ hasText: /^(Hoàn tất|Done)/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('status').filter({ hasText: /Hoàn tất|Done/ }).getByRole('link', { name: /Snowtrace/ })).toBeVisible({ timeout: 30_000 });
+  await page.reload();
+  await expect(page.getByText(/(Khoản cọc của bạn|Your stake) · 10 USDC/)).toBeVisible();
   await ctx.close();
 
   const balance_after = await client.readContract({ address: CIRCLE_USDC, abi: erc20, functionName: 'balanceOf', args: [user] });
@@ -104,7 +106,7 @@ test('Circle USDC: a fork user joins with one permit and the treasury sponsors f
     await expect(sponsor).toBeDisabled();
     await admin.getByRole('textbox', { name: /ID challenge|Challenge ID/ }).fill(id.toString());
     await sponsor.click();
-    await expect(admin.getByRole('status').filter({ hasText: /^(Hoàn tất|Done)/ })).toBeVisible({ timeout: 30_000 });
+    await expect(admin.getByRole('status').filter({ hasText: /Hoàn tất|Done/ }).getByRole('link', { name: /Snowtrace/ })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => client.readContract({
       address: deployments.manager, abi: manager_abi, functionName: 'sponsor_amount_of', args: [id, treasury],
     })).toBe(REVENUE);
@@ -143,7 +145,7 @@ test('a creator can publish a Moodle challenge and commit its activity IDs', asy
   await page.getByPlaceholder(/Instance ID quiz|Quiz instance ID/).fill('11');
   await page.getByPlaceholder(/Instance ID bài tập|Assignment instance ID/).fill('22');
   await create.click();
-  await expect(page.getByRole('status').filter({ hasText: /^(Hoàn tất|Done)/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('status').filter({ hasText: /Hoàn tất|Done/ }).getByRole('link', { name: /Snowtrace/ })).toBeVisible({ timeout: 30_000 });
   const id = await client.readContract({ address: manager, abi: manager_abi, functionName: 'challenge_count' });
   const challenge = await client.readContract({ address: manager, abi: manager_abi, functionName: 'get_challenge', args: [id] });
   const metadata = await fetch(`${ORACLE}/metadata/${challenge.metadata_hash}`);

@@ -140,16 +140,16 @@ export function ChallengeDetail({ id_param }: { id_param: string }) {
             <div className="receipt-total"><small>{vi ? 'Sinh viên tham gia' : 'Enrolled students'}</small><b>{ch.participant_count}</b></div>
             {committed && <Link className="btn receipt-cta" href={`/verify/${id}`}>{vi ? 'Xác minh kết quả' : 'Verify result'} <span>↗</span></Link>}
           </section>
-          {phase === 'Joining' && (!address || stake.data === 0n) && (
+          {phase === 'Joining' && (!address || stake.data !== undefined) && (
             !address ? <section id="join" className="folio"><h2>{vi ? 'Tham gia thử thách' : 'Join challenge'}</h2><WalletButton /></section> :
             !meta ? <p role="status">{t(lang, metadata.isError ? 'error_load' : 'loading')}</p> :
-            needs_moodle_link ? <section id="join" className="folio">
+            !enrolled && needs_moodle_link ? <section id="join" className="folio">
               <h2>Moodle</h2>
               <p role="status">{t(lang, lms_link.isPending ? 'loading' : lms_link.isError ? 'error_load' : 'moodle_join_required')}</p>
               <Link className="record-link" href={link_url}>{t(lang, 'link_title')} ↗</Link>
             </section> :
             <JoinForm key={`${id}:${address}`} id={id} token={ch.token} min_stake={ch.min_stake} max_stake={ch.max_stake}
-              total_principal={ch.total_principal} estimated_pot={has_estimate ? pot.amount : null}
+              current_stake={stake.data ?? 0n} total_principal={ch.total_principal} estimated_pot={has_estimate ? pot.amount : null}
               moodle_access={meta.lms === 'moodle' ? moodle_access : undefined} />
           )}
           <ClaimPanel id={id} phase={phase} wallet={address ?? null} />

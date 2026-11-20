@@ -37,6 +37,7 @@ const transports = {
 } as const;
 
 const injected_config = createConfig({
+  ssr: true,
   chains: [active_chain],
   connectors: [injected_connector({ source: 'avalanche' }), injected_connector()],
   transports,
@@ -44,7 +45,18 @@ const injected_config = createConfig({
 
 // One config for the page's lifetime. wagmi keeps the wallet connection inside this object, and a new one has an empty
 // store that Privy's wagmi bridge does not fill again, so creating it per render would disconnect on every toggle.
-const privy_wagmi_config = PRIVY_ENABLED ? createPrivyWagmiConfig({ chains: [active_chain], transports }) : null;
+const privy_wagmi_config = PRIVY_ENABLED ? createPrivyWagmiConfig({ ssr: true, chains: [active_chain], transports }) : null;
+
+function apply_theme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+  }
+  meta.content = THEME_COLORS[theme];
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const [query_client] = useState(() => new QueryClient());
@@ -53,12 +65,14 @@ export function Providers({ children }: { children: ReactNode }) {
   const [lang, set_lang_state] = useState<Lang>('vi');
   const [theme, set_theme_state] = useState<Theme>('light');
 
-  // These two only update React state: the inline script in layout.tsx has already put the saved values on the page.
-  // An effect that wrote <html> from state would first write the initial 'vi' and 'light' here, and the browser UI would
-  // flash light for anyone who saved dark.
+  // Reconcile the document with the saved preferences if React replaced the initial markup.
   useEffect(() => {
-    set_lang_state(read_pref<Lang>('ss_lang', ['vi', 'en'], 'vi'));
-    set_theme_state(read_pref<Theme>('ss_theme', ['dark', 'light'], 'light'));
+    const language = read_pref<Lang>('ss_lang', ['vi', 'en'], 'vi');
+    const appearance = read_pref<Theme>('ss_theme', ['dark', 'light'], 'light');
+    document.documentElement.lang = language;
+    apply_theme(appearance);
+    set_lang_state(language);
+    set_theme_state(appearance);
   }, []);
 
   const set_lang = (l: Lang) => {
@@ -69,8 +83,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const set_theme = (t: Theme) => {
     write_pref('ss_theme', t);
     set_theme_state(t);
-    document.documentElement.setAttribute('data-theme', t);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[t]);
+    apply_theme(t);
   };
 
   const ui: UiContext = { lang, set_lang, theme, set_theme, privy_enabled: PRIVY_ENABLED };

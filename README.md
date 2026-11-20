@@ -18,7 +18,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/license-MIT-0e6ba8?style=flat"></a>
   <img alt="Avalanche" src="https://img.shields.io/badge/Avalanche-E84142?style=flat&logo=avalanche&logoColor=white">
-  <img alt="Tests: 345 passing" src="https://img.shields.io/badge/tests-345%20passing-2EA44F?style=flat">
+  <img alt="369 contract and unit tests passing" src="https://img.shields.io/badge/tests-369%20passing-2EA44F?style=flat">
   <img alt="Network: live on Fuji" src="https://img.shields.io/badge/network-live%20on%20Fuji-E84142?style=flat">
   <img alt="UniHack 2026" src="https://img.shields.io/badge/UniHack-2026-E84142?style=flat">
 </p>
@@ -31,6 +31,8 @@
 ---
 
 ## Why StudyStake
+
+Open the [public Moodle pilot result on Avalanche Fuji](https://studystake-puce.vercel.app/verify/2) to check the evidence hash and Merkle root in your browser. Round #2 recorded one completion from one participant and a reward pool of 10 test USDC. The participant claimed their payout.
 
 Students miss Moodle quizzes and assignment deadlines. Reminder apps are easy to ignore. Betting-style commitment apps such as StickK and Beeminder add real stakes, but they feel like gambling, and losing real money puts many people off trying them.
 
@@ -180,7 +182,7 @@ Full threat list and residual risks: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.
 - [ ] **One-transaction stake via EIP-2612 `permit`.** The Circle USDC path passed a Fuji-fork browser test. Public Fuji verification needs a `join_with_permit` receipt from the web flow and a check that no separate approval was sent.
 - **AVAX gas faucet for new users.** The repository configures a 0.001 AVAX grant for eligible Fuji wallets. The web shows the confirmed transfer when the faucet succeeds. See the [Fuji runbook](docs/DEPLOY_FUJI.md).
 - [x] **Privy email sign-in and embedded wallet.** An email-code sign-in and session restore were verified on the live site.
-- [ ] **Google sign-in on public Fuji.** Google must be enabled in the deployed Privy app before the end-to-end Google sign-in flow can be verified.
+- [ ] **Google sign-in on public Fuji.** The live sign-in button opens the Google account chooser. The callback and restored wallet session still need an end-to-end check with an authorized Google account.
 - [ ] **Aave V3 adapter.** A join-to-claim lifecycle with real StataToken yield passed on a local C-Chain mainnet fork. The public app on Fuji uses simulated yield.
 - [ ] **x402 Study Credential API.** Paid endpoint and verification UI implemented. Circle USDC settlement has passed on a local Fuji fork. A public Fuji payment and Snowtrace receipt are pending.
 - [ ] **StudyNet L1 for the school (ICM, Builder Console).** Roadmap, not started.
@@ -227,13 +229,13 @@ Two students staked tUSDC. Student A finished both demo activities, student B fi
 | Component | Tests | Command |
 |---|---|---|
 | Contracts (Foundry) | 92, including fuzz and invariant. `StudyStakeManager` at about 98% line coverage. | `forge test` |
-| Oracle (Cloudflare Worker) | 176 Vitest tests plus E2E on Anvil and x402 on a Fuji fork | `npm test`, `npm run e2e:anvil` |
-| Web (Next.js) | 77 Vitest tests plus Playwright E2E on Anvil and a Fuji fork | `npm test`, `npm run e2e`, `npm run e2e:fork:run` |
-| **Total** | **345** contract and unit tests | |
+| Oracle (Cloudflare Worker) | 192 Vitest tests plus E2E on Anvil and x402 on a Fuji fork | `npm test`, `npm run e2e:anvil` |
+| Web (Next.js) | 85 Vitest tests plus Playwright E2E on Anvil and a Fuji fork | `npm test`, `npm run e2e`, `npm run e2e:fork:run` |
+| **Total** | **369** contract and unit tests | |
 
 > [!NOTE]
 > Honesty notes:
-> - The automated tests run on **local Anvil**. One full round has also run on **Fuji**, driven by scripts with throwaway test wallets and tUSDC, see [Live on Fuji](#live-on-fuji).
+> - Automated transaction tests run on local Anvil and forks. Public Fuji evidence is available for the [Demo LMS round](https://studystake-puce.vercel.app/verify/1) and the [Moodle pilot](https://studystake-puce.vercel.app/verify/2).
 > - **Yield is simulated** on testnet by `MockYieldVault`. It is not real market yield.
 > - **The documented Fuji round used test wallets.** Email sign-in and session restore were verified separately. Google sign-in depends on the deployment’s Privy settings.
 > - Rewards depend on an honest oracle until zkTLS replaces it.

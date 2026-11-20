@@ -34,12 +34,13 @@ interface Props {
   token: Address;
   min_stake: bigint;
   max_stake: bigint;
+  current_stake: bigint;
   total_principal: bigint;
   estimated_pot: bigint | null;
   moodle_access?: MoodleAccess;
 }
 
-export function JoinForm({ id, token, min_stake, max_stake, total_principal, estimated_pot, moodle_access }: Props) {
+export function JoinForm({ id, token, min_stake, max_stake, current_stake, total_principal, estimated_pot, moodle_access }: Props) {
   const { lang } = use_ui();
   const { address } = useAccount();
   const config = useConfig();
@@ -52,7 +53,7 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
   const submitting = useRef(false);
   const balance_q = useQuery({
     queryKey: ['balance', token, address ?? null],
-    enabled: !!address,
+    enabled: !!address && current_stake === 0n,
     queryFn: () =>
       public_client.readContract({ address: token, abi: abis.token, functionName: 'balanceOf', args: [address!] }) as Promise<bigint>,
   });
@@ -128,6 +129,16 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
       submitting.current = false;
       set_busy(false);
     }
+  }
+
+  if (current_stake > 0n) {
+    return (
+      <section id="join" className="card flex flex-col gap-3 p-4">
+        <h2 className="font-semibold">{lang === 'vi' ? 'Bạn đã tham gia' : 'You are enrolled'}</h2>
+        <p>{lang === 'vi' ? 'Khoản cọc của bạn' : 'Your stake'} · {format_usdc(current_stake, 6)} {unit}</p>
+        <TxStatusLine state={state} lang={lang} />
+      </section>
+    );
   }
 
   return (

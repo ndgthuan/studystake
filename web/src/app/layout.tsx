@@ -21,7 +21,7 @@ const display_font = Spectral({
 
 export const metadata: Metadata = {
   title: 'StudyStake',
-  description: 'Cam kết học, không mất gốc. Commit to study, never lose principal.',
+  description: 'Theo dõi bài nộp Moodle và đối chiếu kết quả thử thách trên Avalanche Fuji.',
 };
 
 export const viewport: Viewport = {

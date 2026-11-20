@@ -47,7 +47,7 @@ export function ChallengeList() {
           </button>
         ))}
       </div>
-      <CatalogRows q={q} rows={rows} />
+      <CatalogRows q={q} rows={rows} onShowAll={() => set_filter('all')} />
     </div>
   );
 }
@@ -104,13 +104,22 @@ export function useChallengeList(enabled = true) {
 
 }
 
-function CatalogRows({q, rows}: {q: ReturnType<typeof useChallengeList>; rows: Row[]}) {
+function CatalogRows({ q, rows, onShowAll }: { q: ReturnType<typeof useChallengeList>; rows: Row[]; onShowAll: () => void }) {
   const { lang } = use_ui();
   return (
     <>
       {q.isLoading ? <p className="text-[var(--muted)]">{t(lang, 'loading')}</p> : null}
       {q.error ? <p className="text-[var(--muted)]">{t(lang, 'error_load')}</p> : null}
-      {q.data && rows.length === 0 ? <p className="text-[var(--muted)]">{t(lang, 'no_challenges')}</p> : null}
+      {q.data && rows.length === 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="status" className="text-[var(--muted)]">
+            {t(lang, q.data.length ? 'no_matching_challenges' : 'no_challenges')}
+          </p>
+          {q.data.length > 0 && (
+            <button type="button" className="btn btn-ghost" onClick={onShowAll}>{t(lang, 'show_all_challenges')}</button>
+          )}
+        </div>
+      )}
       <ul className="catalog-grid grid gap-3 sm:grid-cols-2">
         {rows.map((r) => (
           <li key={r.id}>

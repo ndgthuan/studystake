@@ -41,6 +41,10 @@ export function FujiWalletSetup({ address }: { address: Address }) {
         <a className="record-link" href={FUJI_FUNDING_URL} target="_blank" rel="noreferrer">Builder Console ↗</a>
       </div>
       <p className="text-sm text-[var(--muted)]">{t(lang, 'fuji_claim_help')}</p>
+      <div>
+        <h3 className="font-semibold">{t(lang, 'aave_yield_title')}</h3>
+        <p className="text-sm text-[var(--muted)]">{t(lang, 'aave_yield_status')}</p>
+      </div>
     </section>
   );
 }

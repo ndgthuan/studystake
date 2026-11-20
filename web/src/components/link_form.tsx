@@ -1,16 +1,16 @@
 'use client';
 // Link an LMS account to the connected wallet. Moodle needs a token and an explicit consent checkbox.
 // Demo LMS needs no token and is labelled DEMO. The signed message is the same one the oracle verifies.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAccount, useWalletClient } from 'wagmi';
 import { use_ui } from '@/hooks/use_ui';
-import { t, type DictKey } from '@/lib/i18n';
+import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { oracle, OracleError, type LinkState } from '@/lib/oracle';
 import { link_message, unlink_message } from '@/lib/messages';
 import { DEFAULT_MOODLE_SITE } from '@/lib/config';
-import { extract_moodle_token, moodle_token_page_url } from '@/lib/moodle';
+import { extract_moodle_token, moodle_token_bookmarklet, moodle_token_page_url } from '@/lib/moodle';
 import { explain_error } from '@/lib/errors';
 import { CredentialConsent } from './credential_consent';
 import { AccountGate } from './account_gate';
@@ -142,7 +142,10 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
         <fieldset disabled={!!step} className="card flex flex-col gap-3 p-4">
           <details className="text-sm">
             <summary className="cursor-pointer font-medium">{t(lang, 'link_token_help')}</summary>
-            <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5 text-[var(--muted)]">
+            <p className="mt-2 text-[var(--muted)]">{t(lang, 'link_token_quick')}</p>
+            <TokenBookmarklet lang={lang} />
+            <p className="mt-3 text-[var(--muted)]">{t(lang, 'link_token_manual')}</p>
+            <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5 text-[var(--muted)]">
               <li>
                 {t(lang, 'link_token_step_open')}{' '}
                 {token_page ? <a className="underline" href={token_page} target="_blank" rel="noreferrer noopener">{t(lang, 'link_token_step_open_link')} ↗</a> : null}
@@ -189,6 +192,30 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
       </div>
       {step && <p role="status" className="text-sm text-[var(--muted)]">{t(lang, step === 'signing' ? 'link_signing' : 'link_saving')}</p>}
       <CredentialConsent />
+    </div>
+  );
+}
+
+/**
+ * Draggable "get token" bookmarklet. React 19 refuses javascript: URLs in href, so the URL is set on the element
+ * after render. Clicking it on this page does nothing; it is meant to be dragged to the bookmarks bar.
+ */
+function TokenBookmarklet({ lang }: { lang: Lang }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    ref.current?.setAttribute('href', moodle_token_bookmarklet({
+      copied: t(lang, 'bookmarklet_copied'),
+      copy_manually: t(lang, 'bookmarklet_copy_manually'),
+      not_found: t(lang, 'bookmarklet_not_found'),
+    }));
+  }, [lang]);
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <a ref={ref} className="btn btn-ghost cursor-grab" draggable title={t(lang, 'link_token_quick_drag')}
+        onClick={(e) => e.preventDefault()}>
+        {t(lang, 'link_token_quick_button')}
+      </a>
+      <small className="text-[var(--muted)]">{t(lang, 'link_token_quick_drag')}</small>
     </div>
   );
 }

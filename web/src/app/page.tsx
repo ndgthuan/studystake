@@ -6,7 +6,7 @@ import { CourseNotebook } from '@/components/course_notebook';
 import { MyStakes } from '@/components/my_stakes';
 import { RollingNumber } from '@/components/rolling_number';
 import { ChainMark } from '@/components/chain_mark';
-import { active_chain } from '@/lib/config';
+import { active_chain, HIDDEN_CHALLENGES } from '@/lib/config';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { use_ui } from '@/hooks/use_ui';
 import { t } from '@/lib/i18n';
@@ -20,6 +20,7 @@ interface Stats {
   completers: number;
   latest_hash?: string;
   latest_result?: number;
+  latest_id?: number;
 }
 
 export default function HomePage() {
@@ -46,8 +47,13 @@ function PublicHome() {
       let last_finalized = 0n;
       let locked = 0n;
       let completers = 0;
+      let listed = 0;
+      let latest_id: number | undefined;
       let enrollments = 0;
       for (let id = 1; id <= count; id++) {
+        if (HIDDEN_CHALLENGES.has(id)) continue;
+        listed += 1;
+        latest_id = id;
         const ch = to_challenge(
           await public_client.readContract({
             address: addresses.manager,
@@ -66,7 +72,7 @@ function PublicHome() {
         completers += ch.completed_count;
         enrollments += ch.participant_count;
       }
-      return { count, locked, enrollments, completers, latest_hash, latest_result };
+      return { count: listed, latest_id, locked, enrollments, completers, latest_hash, latest_result };
     },
     // Always refetch on mount and every 15 s, so a page opened before a settle does not keep a stale 0.
     refetchOnMount: 'always',
@@ -115,7 +121,7 @@ function PublicHome() {
             </Link>
           </div>}
         </div>
-        <CourseNotebook id={q.data?.count} hash={q.data?.latest_hash} lang={lang} />
+        <CourseNotebook id={q.data?.latest_id} hash={q.data?.latest_hash} lang={lang} />
       </section>
       <section className="ledger paper-on-scroll">
         <div className="ledger-head">

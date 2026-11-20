@@ -36,6 +36,7 @@ import {
   progress_user_error,
 } from './progress.ts';
 import { fetch_quiz_preview, parse_quiz_url } from './quiz_preview.ts';
+import { fetch_enrolled_course_ids } from './courses.ts';
 import { check_rate_limit } from './ratelimit.ts';
 import { check_session_assertion, issue_session, require_session, session_message, SESSION_ASSERTION_TTL_SECONDS } from './session.ts';
 import { participants_of, run_settle_job, type SettleDeps } from './settle.ts';
@@ -106,6 +107,7 @@ const preflight_schema = z.strictObject({
   wallet: wallet_schema,
   challenge_id: z.number().int().positive(),
 });
+const courses_schema = z.strictObject({ wallet: wallet_schema });
 const quiz_preview_schema = z.strictObject({ wallet: wallet_schema, url: z.string().trim().min(1).max(2048) });
 const NO_STORE = { 'cache-control': 'no-store' };
 const metadata_post_schema = z.strictObject({
@@ -190,6 +192,7 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
   if (req.method === 'POST' && path === '/session') return handle_session(req, rt, now);
   if (req.method === 'POST' && path === '/join/preflight') return handle_join_preflight(req, rt, now);
   if (req.method === 'POST' && path === '/moodle/quiz-preview') return handle_quiz_preview(req, rt, now);
+  if (req.method === 'POST' && path === '/moodle/courses') return handle_courses(req, rt, now);
 
   if (req.method === 'GET' && parts[0] === 'link' && parts.length === 2) {
     const link = await get_link(rt.store.kv, parts[1]!);
@@ -414,6 +417,24 @@ async function handle_join_preflight(req: Request, rt: Runtime, now: number): Pr
 async function activity_link_info(rt: Runtime, link: LinkRecord, wallet: string, challenge_id: number): Promise<LinkInfo> {
   const token = link.token_enc === null ? null : await decrypt_token(link.token_enc, rt.cfg.token_enc_key);
   return { lms: link.lms, site: link.site, userid: link.userid, wallet, token, challenge_id };
+}
+
+/** Enrolled course ids for the wallet's own linked Moodle account. Needs the wallet session, like progress. */
+async function handle_courses(req: Request, rt: Runtime, now: number): Promise<Response> {
+  const limited = await check_rate_limit(rt.store.kv, 'courses', client_ip(req), 10, 60, now);
+  if (!limited.allowed) throw new ApiError(429, 'rate_limited', 'too many requests');
+  const body = await read_json(req, courses_schema);
+  await require_session(req, body.wallet, now, rt.cfg.token_enc_key);
+  const link = await get_link(rt.store.kv, body.wallet);
+  if (link === null || link.revoked || link.lms !== 'moodle') return json_response({ linked: false }, 200, NO_STORE);
+  if (link.token_enc === null || link.userid === null) {
+    return json_response({ linked: false, site: link.site, cleared: true }, 200, NO_STORE);
+  }
+  const token = await decrypt_token(link.token_enc, rt.cfg.token_enc_key).catch(() => {
+    throw new ApiError(503, 'moodle_unavailable', 'Moodle lookup is unavailable');
+  });
+  const course_ids = await fetch_enrolled_course_ids(link.site, token, link.userid);
+  return json_response({ linked: true, site: link.site, course_ids }, 200, NO_STORE);
 }
 
 async function handle_quiz_preview(req: Request, rt: Runtime, now: number): Promise<Response> {

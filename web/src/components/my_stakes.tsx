@@ -17,6 +17,7 @@ import { FujiWalletSetup } from './fuji_wallet_setup';
 import { use_challenge } from '@/hooks/use_challenge';
 import { use_course_metadata } from '@/hooks/use_course_record';
 import { useChallengeList } from './challenge_list';
+import { public_rows } from '@/lib/catalog';
 import { oracle } from '@/lib/oracle';
 import { moodle_quiz_url } from '@/lib/moodle';
 
@@ -128,7 +129,7 @@ function NextAction({ address, row, loaded, failed, retry }: {
   const { lang } = use_ui();
   const now = Math.floor(Date.now() / 1000);
   const catalog = useChallengeList(loaded && !row);
-  const open = !row ? catalog.data?.find(r => r.phase === 'Joining' && r.target > now) : undefined;
+  const open = !row ? public_rows(catalog.data).find(r => r.phase === 'Joining' && r.target > now) : undefined;
   const id = row?.id ?? (open ? BigInt(open.id) : null);
   const { data } = use_challenge(id);
   const meta = use_course_metadata(data?.ch.metadata_hash).data;

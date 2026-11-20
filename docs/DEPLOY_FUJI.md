@@ -105,6 +105,7 @@ NEXT_PUBLIC_RPC_URL=https://avalanche-fuji-c-chain-rpc.publicnode.com
 NEXT_PUBLIC_ORACLE_URL=https://<worker>.workers.dev
 NEXT_PUBLIC_PRIVY_APP_ID=<app id>
 NEXT_PUBLIC_DEPLOY_BLOCK=<deploy block>
+NEXT_PUBLIC_HIDDEN_CHALLENGES=1,2   # pilot/test rounds kept off public lists and stats; direct links still work
 ```
 
 ## 6. Run one full round on Fuji (mandatory before recording the video)

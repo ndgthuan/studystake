@@ -9,6 +9,10 @@ export const PRIVY_APP_ID = (process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? '').trim();
 export const PRIVY_ENABLED = PRIVY_APP_ID.length > 0;
 /** First block to scan for Joined events. Set to the deploy block for the target chain (0 is safe on Anvil). */
 export const DEPLOY_FROM_BLOCK = BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK ?? '0');
+/** Challenge ids kept off public lists and stats (pilot and test rounds). Direct links still open them. */
+export const HIDDEN_CHALLENGES: ReadonlySet<number> = new Set(
+  (process.env.NEXT_PUBLIC_HIDDEN_CHALLENGES ?? '').split(',').map((s) => Number(s.trim())).filter((n) => Number.isSafeInteger(n) && n > 0),
+);
 
 /** The school StudyStake pilots with. Prefilled wherever a Moodle site is asked for. */
 export const DEFAULT_MOODLE_SITE = 'https://courses.ctda.hcmus.edu.vn';

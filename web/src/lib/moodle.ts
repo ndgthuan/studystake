@@ -78,3 +78,10 @@ export function moodle_token_bookmarklet_source(text: BookmarkletText): string {
 export function moodle_token_bookmarklet(text: BookmarkletText): string {
   return `javascript:${encodeURIComponent(moodle_token_bookmarklet_source(text))}`;
 }
+
+/** Same Moodle site, ignoring case and trailing slashes (the oracle stores one canonical form). */
+export function same_site(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const norm = (s: string) => s.trim().toLowerCase().replace(/[/]+$/, '');
+  return norm(a) === norm(b);
+}

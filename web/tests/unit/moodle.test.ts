@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extract_moodle_token, moodle_quiz_url, moodle_token_page_url } from '@/lib/moodle';
+import { extract_moodle_token, moodle_quiz_url, moodle_token_bookmarklet, moodle_token_page_url } from '@/lib/moodle';
 
 describe('moodle_quiz_url', () => {
   it('retains a Moodle subdirectory and uses the quiz instance ID', () => {
@@ -46,5 +46,45 @@ describe('moodle_token_page_url', () => {
   it('rejects unsafe sites', () => {
     expect(moodle_token_page_url('http://school.example')).toBeNull();
     expect(moodle_token_page_url('nonsense')).toBeNull();
+  });
+});
+
+describe('moodle_token_bookmarklet', () => {
+  const token = 'fedcba9876543210fedcba9876543210';
+  const text = { copied: 'copied', copy_manually: 'copy it', not_found: 'none' };
+
+  async function run(html: string, clipboard_ok = true) {
+    const calls: { fetched?: string; clip?: string; alert?: string; prompt?: [string, string] } = {};
+    const g = {
+      window: { M: { cfg: { wwwroot: 'https://moodle.example/lms/' } } },
+      location: { origin: 'https://moodle.example' },
+      fetch: async (u: string) => { calls.fetched = u; return { text: async () => html }; },
+      navigator: { clipboard: { writeText: async (v: string) => { if (!clipboard_ok) throw new Error('blocked'); calls.clip = v; } } },
+      alert: (m: string) => { calls.alert = m; },
+      prompt: (m: string, v: string) => { calls.prompt = [m, v]; },
+      atob,
+    };
+    g.window = Object.assign(g.window, g);
+    const src = decodeURIComponent(moodle_token_bookmarklet(text).slice('javascript:'.length));
+    // Run the exact bookmarklet text with browser globals stubbed.
+    await new Function(...Object.keys(g), 'M', `return ${src.replace(/;$/, '')}`)(...Object.values(g), g.window.M);
+    return calls;
+  }
+
+  it('copies only the token from the launch page', async () => {
+    const link = `moodlemobile://token=${btoa(`sig:::${token}:::priv`)}`;
+    const calls = await run(`<a id="launchapp" href="${link}">Launch</a>`);
+    expect(calls.fetched).toContain('https://moodle.example/lms/admin/tool/mobile/launch.php?service=moodle_mobile_app');
+    expect(calls.fetched).toContain('confirmed=1');
+    expect(calls).toMatchObject({ clip: token, alert: 'copied' });
+  });
+
+  it('falls back to a prompt when the clipboard is blocked', async () => {
+    const calls = await run(`moodlemobile://token=${btoa(`sig:::${token}`)}`, false);
+    expect(calls.prompt).toEqual(['copy it', token]);
+  });
+
+  it('reports a page without a token link', async () => {
+    expect((await run('<form id="login"></form>')).alert).toBe('none');
   });
 });

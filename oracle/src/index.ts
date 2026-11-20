@@ -193,7 +193,12 @@ async function route(req: Request, rt: Runtime): Promise<Response> {
 
   if (req.method === 'GET' && parts[0] === 'link' && parts.length === 2) {
     const link = await get_link(rt.store.kv, parts[1]!);
-    const state = link_is_active(link) ? { lms: link.lms, site: link.site, linked: true } : { linked: false };
+    // A Moodle token is wiped after the wallet's last Moodle challenge ends; say so instead of a bare "not linked".
+    const record: LinkRecord | null = link;
+    const cleared = record !== null && !record.revoked && record.lms === 'moodle' && record.token_enc === null;
+    const state = link_is_active(link) ? { lms: link.lms, site: link.site, linked: true }
+      : cleared ? { linked: false, lms: 'moodle', site: record.site, cleared: true }
+        : { linked: false };
     return json_response(state, 200, { 'cache-control': 'no-store' });
   }
 

@@ -10,6 +10,7 @@ import { t, type DictKey } from '@/lib/i18n';
 import { oracle, OracleError, type LinkState } from '@/lib/oracle';
 import { link_message, unlink_message } from '@/lib/messages';
 import { DEFAULT_MOODLE_SITE } from '@/lib/config';
+import { extract_moodle_token, moodle_token_page_url } from '@/lib/moodle';
 import { explain_error } from '@/lib/errors';
 import { CredentialConsent } from './credential_consent';
 import { AccountGate } from './account_gate';
@@ -53,6 +54,9 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
   const [step, set_step] = useState<'signing' | 'saving' | null>(null);
   const kind = kind_draft ?? current?.lms ?? 'moodle';
   const site = site_draft ?? (current?.lms === 'moodle' ? current.site : undefined) ?? DEFAULT_MOODLE_SITE;
+  const parsed_token = extract_moodle_token(token);
+  const token_invalid = token.trim() !== '' && parsed_token === null;
+  const token_page = moodle_token_page_url(site.trim());
 
   async function save_state(state: LinkState) {
     await qc.cancelQueries({ queryKey: link_key, exact: true });
@@ -67,7 +71,7 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
   }
 
   async function link() {
-    if (!client || step || (kind === 'moodle' && (!consent || !token.trim() || !site.trim()))) return;
+    if (!client || step || (kind === 'moodle' && (!consent || !parsed_token || !site.trim()))) return;
     set_step('signing');
     try {
       const issued_at = Math.floor(Date.now() / 1000);
@@ -79,7 +83,7 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
         wallet: address,
         lms: kind,
         site: target_site,
-        moodle_token: kind === 'moodle' ? token.trim() : undefined,
+        moodle_token: kind === 'moodle' ? parsed_token ?? undefined : undefined,
         signature,
         issued_at,
       });
@@ -122,7 +126,7 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
       <h1 className="text-2xl font-bold">{t(lang, 'link_title')}</h1>
       <section className="folio saved-link" data-linked={!!current}>
         <p>{current ? t(lang, current.lms === 'moodle' ? 'link_moodle_success' : 'link_demo_success') :
-          t(lang, saved.isPending ? 'loading' : saved.isError ? 'link_state_failed' : 'link_none')}</p>
+          t(lang, saved.isPending ? 'loading' : saved.isError ? 'link_state_failed' : saved.data?.cleared ? 'link_token_cleared' : 'link_none')}</p>
         {current?.lms === 'moodle' && current.site && <small>{current.site}</small>}
       </section>
       <div className="flex gap-2">
@@ -136,7 +140,18 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
 
       {kind === 'moodle' ? (
         <fieldset disabled={!!step} className="card flex flex-col gap-3 p-4">
-          <p className="text-sm text-[var(--muted)]">{t(lang, 'link_token_help')}</p>
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium">{t(lang, 'link_token_help')}</summary>
+            <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5 text-[var(--muted)]">
+              <li>
+                {t(lang, 'link_token_step_open')}{' '}
+                {token_page ? <a className="underline" href={token_page} target="_blank" rel="noreferrer noopener">{t(lang, 'link_token_step_open_link')} ↗</a> : null}
+              </li>
+              <li>{t(lang, 'link_token_step_copy')}</li>
+              <li>{t(lang, 'link_token_step_paste')}</li>
+            </ol>
+            <p className="mt-2 text-xs text-[var(--muted)]">{t(lang, 'link_token_step_note')}</p>
+          </details>
           <label className="flex flex-col gap-1 text-sm">
             <span>Site</span>
             <input className="input" value={site} onChange={(e) => set_site(e.target.value)} />
@@ -144,9 +159,11 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
           <label className="flex flex-col gap-1 text-sm">
             <span>Token</span>
             <input className="input" type="password" autoComplete="off" value={token}
-              aria-describedby={current?.lms === 'moodle' ? 'saved-token-help' : undefined}
+              aria-invalid={token_invalid || undefined}
+              aria-describedby={[token_invalid ? 'token-format-error' : '', current?.lms === 'moodle' ? 'saved-token-help' : ''].filter(Boolean).join(' ') || undefined}
               onChange={(e) => set_token(e.target.value)} />
           </label>
+          {token_invalid && <small id="token-format-error" role="alert" className="text-[var(--accent)]">{t(lang, 'link_token_bad_format')}</small>}
           {current?.lms === 'moodle' && <small id="saved-token-help" className="text-[var(--muted)]">{t(lang, 'link_token_replace_help')}</small>}
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={consent} onChange={(e) => set_consent(e.target.checked)} className="mt-1" />
@@ -161,7 +178,7 @@ function WalletLinkForm({ address }: { address: `0x${string}` }) {
         <button
           type="button"
           className="btn"
-          disabled={!client || !!step || (kind === 'moodle' && (!consent || !token.trim() || !site.trim()))}
+          disabled={!client || !!step || (kind === 'moodle' && (!consent || !parsed_token || !site.trim()))}
           onClick={link}
         >
           {t(lang, 'link_title')}

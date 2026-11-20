@@ -97,7 +97,7 @@ describe('one Moodle account binds to one wallet, however the site is typed', ()
     expect(await get_link(kv, wallet)).toBeNull();
   });
 
-  it('reports revoked Moodle links as unlinked', async () => {
+  it('reports a wiped Moodle token as unlinked and cleared', async () => {
     const kv = make_memory_kv();
     const { res, wallet } = await link(kv, SITE);
     expect(res.status).toBe(200);
@@ -106,6 +106,9 @@ describe('one Moodle account binds to one wallet, however the site is typed', ()
 
     const stored = await get_link(kv, wallet);
     await kv.put(`link:${wallet.toLowerCase()}`, JSON.stringify({ ...stored, token_enc: null }));
+    expect(await (await worker.fetch(request(), make_env(kv))).json()).toEqual({ linked: false, lms: 'moodle', site: SITE, cleared: true });
+
+    await kv.put(`link:${wallet.toLowerCase()}`, JSON.stringify({ ...stored, token_enc: null, revoked: true }));
     expect(await (await worker.fetch(request(), make_env(kv))).json()).toEqual({ linked: false });
   });
 });

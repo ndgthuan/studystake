@@ -21,7 +21,7 @@ export function LinkStatus() {
     <section className="folio">
       <div className="sheet-head"><h2>Moodle</h2></div>
       <p>{q.isPending ? t(lang, 'loading') : q.isError ? t(lang, 'error_load') :
-        t(lang, linked?.lms === 'moodle' ? 'link_moodle_success' : 'moodle_setup_needed')}</p>
+        t(lang, linked?.lms === 'moodle' ? 'link_moodle_success' : q.data?.cleared ? 'link_token_cleared' : 'moodle_setup_needed')}</p>
       {linked?.lms === 'moodle' && linked.site && <p className="text-sm text-[var(--muted)] break-all">{linked.site}</p>}
       <Link href="/link" className="record-link">{t(lang, 'link_title')} ↗</Link>
     </section>

@@ -96,6 +96,26 @@ function Connected({ on_disconnect }: { on_disconnect?: () => void }) {
   );
 }
 
+const SILENT_FAUCET_CODES = new Set(['already_funded', 'user_already_claimed', 'wallet_already_claimed']);
+const drip_key = (address: Address) => `studystake:gas_drip:${address.toLowerCase()}`;
+
+/** True when this browser already saw a faucet grant (or an "already claimed" answer) for the wallet. */
+function read_drip_done(address: Address): boolean {
+  try {
+    return window.localStorage.getItem(drip_key(address)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function mark_drip_done(address: Address): void {
+  try {
+    window.localStorage.setItem(drip_key(address), '1');
+  } catch {
+    // Storage can be blocked; the oracle still refuses a second grant.
+  }
+}
+
 type DripState = { status: 'idle' | 'sending' | 'failed' } | { status: 'sent'; tx_hash: string; amount: string };
 
 /**
@@ -111,6 +131,7 @@ function GasDrip({ address, lang }: { address: Address; lang: Lang }) {
     if (CHAIN_ID !== 43113 || requested.current) return;
     // Guarded by a ref, not a cleanup flag: a StrictMode re-run must not drop the result of the one request.
     requested.current = true;
+    if (read_drip_done(address)) return;
     void (async () => {
       try {
         if (await public_client.getBalance({ address }) >= LOW_GAS_WEI) return;
@@ -120,9 +141,16 @@ function GasDrip({ address, lang }: { address: Address; lang: Lang }) {
         const res = await oracle.post_faucet({ wallet: address }, jwt);
         const receipt = await public_client.waitForTransactionReceipt({ hash: res.tx_hash, timeout: 45_000 });
         if (receipt.status !== 'success') throw new Error('Faucet transaction failed');
+        mark_drip_done(address);
         set_state({ status: 'sent', tx_hash: res.tx_hash, amount: formatEther(BigInt(res.amount_wei)) });
       } catch (err) {
-        set_state({ status: err instanceof OracleError && err.code === 'already_funded' ? 'idle' : 'failed' });
+        // The oracle grants gas once per account and wallet; a repeat request is not a failure.
+        if (err instanceof OracleError && SILENT_FAUCET_CODES.has(err.code)) {
+          if (err.code !== 'already_funded') mark_drip_done(address);
+          set_state({ status: 'idle' });
+          return;
+        }
+        set_state({ status: 'failed' });
       }
     })();
   }, [address, getAccessToken]);

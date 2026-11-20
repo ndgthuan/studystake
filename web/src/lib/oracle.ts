@@ -45,6 +45,8 @@ export interface LinkState {
   linked: boolean;
   lms?: 'moodle' | 'demo';
   site?: string;
+  /** Set when the Moodle token was wiped after the wallet's last challenge ended. */
+  cleared?: boolean;
 }
 
 export interface ProgressActivity {

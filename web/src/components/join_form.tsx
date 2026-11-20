@@ -64,6 +64,9 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
   const amount = parse_usdc(text);
   const in_range = amount !== null && amount >= min_stake && amount <= max_stake;
   const enough = amount !== null && amount <= balance;
+  const unit = is_tusdc(token) ? 'tUSDC' : 'USDC';
+  // Offer test tokens up front when the wallet cannot cover even the minimum stake.
+  const show_faucet_early = is_tusdc(token) && balance_q.isSuccess && balance < min_stake && !(amount !== null && in_range && !enough);
 
   /**
    * Permit path: one signature, then join_with_permit (one tx). Approve path: approve, then join.
@@ -141,15 +144,21 @@ export function JoinForm({ id, token, min_stake, max_stake, total_principal, est
         />
       </label>
       <div className="num text-sm text-[var(--muted)]">
-        {t(lang, 'balance')}: {format_usdc(balance)} USDC
+        {t(lang, 'balance')}: {format_usdc(balance)} {unit}
       </div>
+      {show_faucet_early ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>{t(lang, 'need_usdc')}</span>
+          <FaucetButton />
+        </div>
+      ) : null}
       {amount !== null && amount > 0n && in_range && <>
-        <PayoutLines lang={lang} principal={null} estimate={estimated_pot === null ? null : estimated_pot * amount / (total_principal + amount)} />
+        <PayoutLines lang={lang} unit={unit} principal={null} estimate={estimated_pot === null ? null : estimated_pot * amount / (total_principal + amount)} />
         <small>{t(lang, 'stake_risk')}</small>
       </>}
       {amount !== null && !in_range ? (
         <p className="text-sm" style={{ color: 'var(--accent)' }}>
-          {format_usdc(min_stake)} – {format_usdc(max_stake)} USDC
+          {format_usdc(min_stake)} – {format_usdc(max_stake)} {unit}
         </p>
       ) : null}
       {amount !== null && in_range && !enough ? (
